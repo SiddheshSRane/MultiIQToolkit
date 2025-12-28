@@ -1,0 +1,146 @@
+/* ================================================
+   🧠 MultiIQ Toolkit - Custom Streamlit Theme
+   Author: Siddhesh Rane
+   File: assets/style.css
+   ================================================ */
+
+/* General Page Styling */
+.main {
+    background: linear-gradient(135deg, #0F1117 0%, #1A1F2E 100%);
+    padding: 2rem 2.5rem;
+}
+h1 {
+    font-weight: 700 !important;
+    font-size: 2.8rem !important;
+    margin-bottom: 0.5rem !important;
+    background: linear-gradient(90deg, #00D9FF, #00B4D8);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    -text-fill-color: transparent;
+}
+
+/* Fallback for unsupported browsers */
+h1:not(:-webkit-any(*)) {
+    color: #00D9FF !important;
+}
+
+h2, h3 {
+    color: #E0E6ED !important;
+    font-weight: 600 !important;
+}
+p, .stMarkdown {
+    color: #B0B8C4 !important;
+}
+
+/* Tabs - Modern Glass Effect */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 2px solid #2A2F3C;
+    margin-bottom: 2rem;
+}
+.stTabs [data-baseweb="tab"] {
+    color: #8B92A0 !important;
+    background-color: transparent;
+    border-radius: 8px 8px 0 0;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #1C2333;
+    color: #00D9FF !important;
+}
+.stTabs [aria-selected="true"] {
+    background-color: transparent;
+    color: #00D9FF !important;
+    border-bottom: 3px solid #00D9FF;
+}
+
+/* Buttons */
+div.stButton > button {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2A4F7E 100%);
+    color: #00D9FF;
+    border-radius: 10px;
+    border: 1.5px solid #00D9FF;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.35s ease;
+    width: 100%;
+    height: 48px;
+    box-shadow: 0 4px 15px rgba(0, 217, 255, 0.15);
+}
+div.stButton > button:hover {
+    background: linear-gradient(135deg, #00D9FF 0%, #00B4D8 100%);
+    color: #0F1117;
+    box-shadow: 0 8px 25px rgba(0, 217, 255, 0.35);
+    transform: translateY(-3px);
+}
+div.stButton > button:active {
+    transform: translateY(-1px);
+}
+
+/* Text Areas & Inputs */
+textarea, input[type="text"], .stTextInput>div>div>input, .stSelectbox>div>div>select {
+    background-color: #1C1F26 !important;
+    color: #E0E6ED !important;
+    border: 1.5px solid #2A2F3C !important;
+    border-radius: 8px !important;
+    padding: 0.75rem !important;
+    font-size: 0.95rem !important;
+    transition: all 0.3s ease !important;
+}
+textarea:focus, input[type="text"]:focus {
+    border-color: #00D9FF !important;
+    background-color: #232A34 !important;
+    box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1) !important;
+}
+
+/* Download Buttons */
+.stDownloadButton > button {
+    background: linear-gradient(135deg, #00D9FF 0%, #00B4D8 100%);
+    color: #0F1117;
+    font-weight: 700;
+    border-radius: 10px;
+    border: none;
+    height: 48px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 217, 255, 0.25);
+}
+.stDownloadButton > button:hover {
+    box-shadow: 0 8px 30px rgba(0, 217, 255, 0.4);
+    transform: translateY(-3px);
+}
+
+/* File Uploader */
+.stFileUploadDropzone {
+    border: 2px dashed #00D9FF !important;
+    border-radius: 10px !important;
+    background-color: rgba(0, 217, 255, 0.05) !important;
+}
+
+/* Column Cards */
+.column-card {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2A4F7E 100%);
+    border: 1.5px solid #00D9FF;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    cursor: pointer;
+    text-align: center;
+    font-weight: 600;
+    color: #00D9FF;
+    transition: all 0.3s ease;
+}
+.column-card:hover {
+    background: linear-gradient(135deg, #00D9FF 0%, #00B4D8 100%);
+    color: #0F1117;
+    transform: translateY(-2px);
+}
+.column-card.selected {
+    background: linear-gradient(135deg, #00D9FF 0%, #00B4D8 100%);
+    color: #0F1117;
+    box-shadow: 0 8px 30px rgba(0, 217, 255, 0.4);
+}
