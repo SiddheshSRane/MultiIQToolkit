@@ -8,3 +8,6 @@ scikit-learn
 seaborn
 statsmodels
 plotly
+xlsxwriter
+pyarrow
+pydantic
