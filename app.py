@@ -1,22 +1,19 @@
 import streamlit as st
-from tools import text_tools, list_tools, file_tools, add_modify, data_tools, profiler_tools
-import pandas as pd
-import matplotlib.pyplot as plt
+from tools import list_tools, file_tools, add_modify
 
-# ------------------------------------
+# -----------------------------------------------------------
 # PAGE CONFIGURATION
-# ------------------------------------
+# -----------------------------------------------------------
 st.set_page_config(
-    page_title="🧠 MultiIQ Toolkit",
+    page_title="📦 MiniIQ Toolkit",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ------------------------------------
-# LOAD EXTERNAL CSS
-# ------------------------------------
+# -----------------------------------------------------------
+# LOAD CSS
+# -----------------------------------------------------------
 def load_css(file_name: str):
-    """Load CSS from the assets folder."""
     try:
         with open(file_name, "r") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -25,232 +22,174 @@ def load_css(file_name: str):
 
 load_css("assets/style.css")
 
-st.title("🧠 MultiIQ Toolkit")
-st.caption("⚡ Convert, transform, and analyze your data — all in one workspace")
+# -----------------------------------------------------------
+# PAGE HEADER
+# -----------------------------------------------------------
+st.title("📦 MiniIQ Toolkit")
+st.caption("⚡ Simplified version — just the essentials")
 st.divider()
 
-# ------------------------------------
-# NEW MERGED TABS
-# ------------------------------------
-tab1, tab2 = st.tabs([
-    "🧠 Text & List Tools",
-    "📂 Data Operations"
-])
+# -----------------------------------------------------------
+# TABS
+# -----------------------------------------------------------
+tab1, tab2 = st.tabs(["🧠 Text & List Tools", "📂 File Tools"])
 
-# ==========================================================
-# TAB 1 — TEXT + LIST TOOLS
-# ==========================================================
+# ===========================================================
+# TAB 1 — TEXT & LIST TOOLS (WITH COPY BUTTON)
+# ===========================================================
 with tab1:
     st.header("🧠 Text & List Tools")
 
-    section = st.radio(
-        "Select Section",
-        ["Text Tools", "List Tools"],
-        horizontal=True
-    )
+    tool_options = {
+        "📊 Column → CSV": list_tools.column_to_comma,
+        "✨ Column → Quoted CSV": list_tools.column_to_quoted_comma,
+        "📈 CSV → Column": list_tools.comma_to_column,
+        "🔗 Spaces → Commas": None,
+        "📍 Newlines → Commas": None,
+    }
 
-    # ------------------------------
-    # TEXT TOOLS SECTION
-    # ------------------------------
-    if section == "Text Tools":
-        st.subheader("📝 Text Tools")
-        text_options = {
-            "🔤 Uppercase": text_tools.to_upper,
-            "🔡 Lowercase": text_tools.to_lower,
-            "📌 Proper Case": text_tools.to_proper,
-            "🔗 Spaces → Commas": text_tools.replace_spaces_with_commas,
-            "📍 Newlines → Commas": text_tools.replace_newlines_with_commas,
-            "🔀 Regex Replace": text_tools.regex_replace
-        }
+    cols = st.columns(3)
+    for i, label in enumerate(tool_options.keys()):
+        with cols[i % 3]:
+            if st.button(label, use_container_width=True):
+                st.session_state["active_tool"] = label
 
-        cols = st.columns(3)
-        for i, label in enumerate(text_options.keys()):
-            with cols[i % 3]:
-                if st.button(label, width='stretch'):
-                    st.session_state["active_text_tool"] = label
+    st.divider()
 
-        if "active_text_tool" in st.session_state:
-            st.divider()
-            func = text_options[st.session_state["active_text_tool"]]
-            st.subheader(f"Active: {st.session_state['active_text_tool']}")
+    if "active_tool" in st.session_state:
+        selected_tool = st.session_state["active_tool"]
+        st.subheader(f"Active Tool: {selected_tool}")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                text_input = st.text_area("📥 Input:", height=200, placeholder="Paste text here...")
-                if "Regex" in st.session_state["active_text_tool"]:
-                    pattern = st.text_input("Pattern:", placeholder="e.g., \\d+")
-                    repl = st.text_input("Replacement:", placeholder="e.g., [NUMBER]")
+        text_input = st.text_area("📥 Input:", height=200, placeholder="Paste your text or list data here...")
 
-            with col2:
-                if st.button("⚡ Convert Now", width='stretch'):
-                    if not text_input.strip():
-                        st.error("❌ Please enter some text")
-                    elif "Regex" in st.session_state["active_text_tool"] and not pattern:
-                        st.error("❌ Please enter a regex pattern")
-                    else:
-                        with st.spinner("Processing..."):
-                            try:
-                                output = func(text_input, pattern, repl) if "Regex" in st.session_state["active_text_tool"] else func(text_input)
-                                if output:
-                                    st.success("✅ Conversion complete!")
-                                    st.text_area("📤 Output:", value=output, height=200, disabled=True)
-                                    st.download_button("📥 Download Result", output, file_name="text_output.txt", width='stretch')
-                                else:
-                                    st.warning("⚠️ No output generated.")
-                            except Exception as e:
-                                st.error(f"❌ Error: {str(e)}")
-
-    # ------------------------------
-    # LIST TOOLS SECTION
-    # ------------------------------
-    else:
-        st.subheader("📋 List Tools")
-
-        list_options = {
-            "📊 Column → CSV": list_tools.column_to_comma,
-            "✨ Column → Quoted CSV": list_tools.column_to_quoted_comma,
-            "📈 CSV → Column": list_tools.comma_to_column
-        }
-
-        cols = st.columns(3)
-        for i, label in enumerate(list_options.keys()):
-            with cols[i % 3]:
-                if st.button(label, width='stretch'):
-                    st.session_state["active_list_tool"] = label
-
-        if "active_list_tool" in st.session_state:
-            st.divider()
-            func = list_options[st.session_state["active_list_tool"]]
-            st.subheader(f"Active: {st.session_state['active_list_tool']}")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                list_input = st.text_area("📥 Input:", height=200, placeholder="Paste list data here...")
-
-            with col2:
-                if st.button("⚡ Convert Now", width='stretch'):
-                    if not list_input.strip():
-                        st.error("❌ Please enter some data")
-                    else:
-                        with st.spinner("Converting..."):
-                            try:
-                                output = func(list_input)
-                                if output:
-                                    st.success("✅ Conversion complete!")
-                                    st.text_area("📤 Output:", value=output, height=200, disabled=True)
-                                    st.download_button("📥 Download Result", output, file_name="list_output.txt", width='stretch')
-                                else:
-                                    st.warning("⚠️ No valid data to convert.")
-                            except Exception as e:
-                                st.error(f"❌ Error: {str(e)}")
-
-# ==========================================================
-# TAB 2 — DATA OPERATIONS
-# ==========================================================
-with tab2:
-    st.header("📂 Data Operations")
-
-    section = st.radio(
-        "Select Section",
-        ["File Merge", "Column Removal", "Data Cleaning & Transform"],
-        horizontal=True
-    )
-
-    # ------------------------------
-    # FILE MERGE SECTION
-    # ------------------------------
-    if section == "File Merge":
-        st.subheader("📁 Merge Files")
-        merge_type = st.selectbox("Merge Type", ["📊 Excel Files", "📄 CSV Files"])
-        uploaded_files = st.file_uploader("Upload Files", accept_multiple_files=True, type=["xlsx", "xls", "csv"])
-
-        if st.button("⚡ Start Merging", width='stretch'):
-            if not uploaded_files:
-                st.error("❌ Please upload files")
+        if st.button("⚡ Convert Now", use_container_width=True, key="convert_button"):
+            if not text_input.strip():
+                st.error("❌ Please enter some data")
             else:
-                with st.spinner("Merging..."):
-                    output = file_tools.merge_excel(uploaded_files) if "Excel" in merge_type else file_tools.merge_csv(uploaded_files)
+                with st.spinner("Processing..."):
+                    try:
+                        func = tool_options[selected_tool]
+                        output = None
+
+                        if selected_tool == "🔗 Spaces → Commas":
+                            output = text_input.replace(" ", ",")
+                        elif selected_tool == "📍 Newlines → Commas":
+                            output = text_input.replace("\n", ",").replace("\r", "")
+                        else:
+                            output = func(text_input)
+
+                        if output:
+                            st.success("✅ Conversion complete!")
+                            st.text_area("📤 Output:", value=output, height=200, disabled=True)
+
+                            # Copy to clipboard button (JS hack)
+                            copy_button = f"""
+                            <button 
+                                style="margin-top:8px;padding:8px 16px;background-color:#4CAF50;
+                                color:white;border:none;border-radius:6px;cursor:pointer;"
+                                onclick="navigator.clipboard.writeText(`{output}`)">
+                                📋 Copy to Clipboard
+                            </button>
+                            """
+                            st.markdown(copy_button, unsafe_allow_html=True)
+
+                            st.download_button(
+                                "📥 Download Result",
+                                data=output,
+                                file_name=f"{selected_tool.replace(' ', '_')}.txt",
+                                use_container_width=True
+                            )
+                        else:
+                            st.warning("⚠️ No output generated.")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+
+# ===========================================================
+# TAB 2 — FILE TOOLS (UNCHANGED)
+# ===========================================================
+with tab2:
+    st.header("📂 File Tools")
+    st.caption("Merge Excel/CSV files or remove unwanted columns")
+
+    section = st.radio(
+        "Select Operation",
+        ["📊 Merge Excel Files", "📄 Merge CSV Files", "🗑️ Remove Columns"],
+        horizontal=True
+    )
+
+    # ---------------------------
+    # MERGE EXCEL FILES
+    # ---------------------------
+    if section == "📊 Merge Excel Files":
+        uploaded_files = st.file_uploader("Upload Excel files", accept_multiple_files=True, type=["xlsx", "xls"])
+        if st.button("⚡ Merge Excel Files", use_container_width=True):
+            if not uploaded_files:
+                st.error("❌ Please upload at least one Excel file.")
+            else:
+                with st.spinner("Merging Excel files..."):
+                    output = file_tools.merge_excel(uploaded_files)
                     if output:
-                        file_name = "merged_output.xlsx" if "Excel" in merge_type else "merged_output.csv"
-                        st.success("✅ Merge complete!")
-                        st.download_button("📥 Download Merged File", data=output.getvalue(), file_name=file_name, width='stretch')
+                        st.success("✅ Excel files merged successfully!")
+                        st.download_button(
+                            "📥 Download Merged File",
+                            data=output.getvalue(),
+                            file_name="merged_excel_output.xlsx",
+                            use_container_width=True
+                        )
                     else:
-                        st.error("❌ Merge failed.")
+                        st.error("❌ Merge failed. Please verify your input files.")
 
-    # ------------------------------
-    # COLUMN REMOVAL SECTION
-    # ------------------------------
-    elif section == "Column Removal":
-        st.subheader("🔧 Column Removal Tool")
-        uploaded_file = st.file_uploader("Select Excel File", type=["xlsx", "xls"])
+    # ---------------------------
+    # MERGE CSV FILES
+    # ---------------------------
+    elif section == "📄 Merge CSV Files":
+        uploaded_files = st.file_uploader("Upload CSV files", accept_multiple_files=True, type=["csv"])
+        if st.button("⚡ Merge CSV Files", use_container_width=True):
+            if not uploaded_files:
+                st.error("❌ Please upload at least one CSV file.")
+            else:
+                with st.spinner("Merging CSV files..."):
+                    output = file_tools.merge_csv(uploaded_files)
+                    if output:
+                        st.success("✅ CSV files merged successfully!")
+                        st.download_button(
+                            "📥 Download Merged File",
+                            data=output.getvalue(),
+                            file_name="merged_csv_output.csv",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error("❌ Merge failed. Please verify your input files.")
 
+    # ---------------------------
+    # COLUMN REMOVAL TOOL
+    # ---------------------------
+    elif section == "🗑️ Remove Columns":
+        uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx", "xls"])
         if uploaded_file:
-            st.success(f"✓ File loaded: {uploaded_file.name}")
+            st.success(f"✅ File loaded: {uploaded_file.name}")
             file_bytes = uploaded_file.read()
             uploaded_file.seek(0)
             columns = add_modify.get_excel_columns(file_bytes)
 
             if columns:
                 selected_columns = st.multiselect("Select Columns to Remove", columns)
-                if st.button("⚡ Remove Columns", width='stretch'):
-                    output, filename = add_modify.remove_columns(uploaded_file, selected_columns)
-                    if output:
-                        st.success("✅ Columns removed successfully!")
-                        st.download_button("📥 Download Modified File", data=output, file_name=f"{filename}_modified.xlsx", width='stretch')
-                    else:
-                        st.error(f"❌ Error: {filename}")
+                if st.button("⚡ Remove Columns", use_container_width=True):
+                    with st.spinner("Removing selected columns..."):
+                        output, filename = add_modify.remove_columns(uploaded_file, selected_columns)
+                        if output:
+                            st.success("✅ Columns removed successfully!")
+                            st.download_button(
+                                "📥 Download Modified Excel",
+                                data=output,
+                                file_name=f"{filename}_modified.xlsx",
+                                use_container_width=True
+                            )
+                        else:
+                            st.error(f"❌ Error: {filename}")
             else:
-                st.error("❌ Unable to read columns from file.")
+                st.error("❌ Could not read columns from the file.")
 
-    # ------------------------------
-    # DATA CLEANING / TRANSFORM SECTION
-    # ------------------------------
-    else:
-        st.subheader("🧹 Data Tools")
-        uploaded_file = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"])
-        if uploaded_file:
-            df = data_tools.load_excel(uploaded_file)
-            st.dataframe(df.head(), width='stretch')
-            operation = st.selectbox("Select Operation", ["Merge Columns", "Split Column", "Clean Data", "Validate Data"])
-            st.divider()
-
-            if operation == "Merge Columns":
-                cols = st.multiselect("Select Columns", df.columns)
-                sep = st.text_input("Separator", "_")
-                new_col = st.text_input("New Column Name", "merged_column")
-                if st.button("⚡ Merge Now"):
-                    if len(cols) < 2:
-                        st.error("❌ Select at least two columns")
-                    else:
-                        result = data_tools.merge_columns(df, cols, sep, new_col)
-                        st.success("✅ Columns merged")
-                        st.dataframe(result.head())
-                        st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="merged_data.xlsx", width='stretch')
-
-            elif operation == "Split Column":
-                col = st.selectbox("Select Column", df.columns)
-                delim = st.text_input("Delimiter", ",")
-                if st.button("⚡ Split Now"):
-                    result = data_tools.split_column(df, col, delim)
-                    st.success("✅ Column split")
-                    st.dataframe(result.head())
-                    st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="split_data.xlsx", width='stretch')
-
-            elif operation == "Clean Data":
-                trim = st.checkbox("✂️ Trim whitespace", True)
-                dedup = st.checkbox("🧹 Remove duplicates", True)
-                fill_value = st.text_input("Fill empty cells with (optional)")
-                if st.button("⚡ Clean Data"):
-                    result = data_tools.clean_data(df, trim, dedup, fill_value or None)
-                    st.success("✅ Data cleaned")
-                    st.dataframe(result.head())
-                    st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="cleaned_data.xlsx", width='stretch')
-
-            elif operation == "Validate Data":
-                if st.button("⚡ Validate Data"):
-                    report = data_tools.validate_data(df)
-                    if not report:
-                        st.success("✅ No issues found.")
-                    else:
-                        st.warning("⚠️ Issues detected:")
-                        st.json(report)
+# -----------------------------------------------------------
+# END OF FILE
+# -----------------------------------------------------------
