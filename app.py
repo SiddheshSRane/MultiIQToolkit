@@ -32,10 +32,9 @@ st.divider()
 # ------------------------------------
 # NEW MERGED TABS
 # ------------------------------------
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2 = st.tabs([
     "🧠 Text & List Tools",
-    "📂 Data Operations",
-    "📊 Data Profiler"
+    "📂 Data Operations"
 ])
 
 # ==========================================================
@@ -67,7 +66,7 @@ with tab1:
         cols = st.columns(3)
         for i, label in enumerate(text_options.keys()):
             with cols[i % 3]:
-                if st.button(label, use_container_width=True):
+                if st.button(label, width='stretch'):
                     st.session_state["active_text_tool"] = label
 
         if "active_text_tool" in st.session_state:
@@ -83,7 +82,7 @@ with tab1:
                     repl = st.text_input("Replacement:", placeholder="e.g., [NUMBER]")
 
             with col2:
-                if st.button("⚡ Convert Now", use_container_width=True):
+                if st.button("⚡ Convert Now", width='stretch'):
                     if not text_input.strip():
                         st.error("❌ Please enter some text")
                     elif "Regex" in st.session_state["active_text_tool"] and not pattern:
@@ -95,7 +94,7 @@ with tab1:
                                 if output:
                                     st.success("✅ Conversion complete!")
                                     st.text_area("📤 Output:", value=output, height=200, disabled=True)
-                                    st.download_button("📥 Download Result", output, file_name="text_output.txt", use_container_width=True)
+                                    st.download_button("📥 Download Result", output, file_name="text_output.txt", width='stretch')
                                 else:
                                     st.warning("⚠️ No output generated.")
                             except Exception as e:
@@ -116,7 +115,7 @@ with tab1:
         cols = st.columns(3)
         for i, label in enumerate(list_options.keys()):
             with cols[i % 3]:
-                if st.button(label, use_container_width=True):
+                if st.button(label, width='stretch'):
                     st.session_state["active_list_tool"] = label
 
         if "active_list_tool" in st.session_state:
@@ -129,7 +128,7 @@ with tab1:
                 list_input = st.text_area("📥 Input:", height=200, placeholder="Paste list data here...")
 
             with col2:
-                if st.button("⚡ Convert Now", use_container_width=True):
+                if st.button("⚡ Convert Now", width='stretch'):
                     if not list_input.strip():
                         st.error("❌ Please enter some data")
                     else:
@@ -139,7 +138,7 @@ with tab1:
                                 if output:
                                     st.success("✅ Conversion complete!")
                                     st.text_area("📤 Output:", value=output, height=200, disabled=True)
-                                    st.download_button("📥 Download Result", output, file_name="list_output.txt", use_container_width=True)
+                                    st.download_button("📥 Download Result", output, file_name="list_output.txt", width='stretch')
                                 else:
                                     st.warning("⚠️ No valid data to convert.")
                             except Exception as e:
@@ -165,7 +164,7 @@ with tab2:
         merge_type = st.selectbox("Merge Type", ["📊 Excel Files", "📄 CSV Files"])
         uploaded_files = st.file_uploader("Upload Files", accept_multiple_files=True, type=["xlsx", "xls", "csv"])
 
-        if st.button("⚡ Start Merging", use_container_width=True):
+        if st.button("⚡ Start Merging", width='stretch'):
             if not uploaded_files:
                 st.error("❌ Please upload files")
             else:
@@ -174,7 +173,7 @@ with tab2:
                     if output:
                         file_name = "merged_output.xlsx" if "Excel" in merge_type else "merged_output.csv"
                         st.success("✅ Merge complete!")
-                        st.download_button("📥 Download Merged File", data=output.getvalue(), file_name=file_name, use_container_width=True)
+                        st.download_button("📥 Download Merged File", data=output.getvalue(), file_name=file_name, width='stretch')
                     else:
                         st.error("❌ Merge failed.")
 
@@ -193,11 +192,11 @@ with tab2:
 
             if columns:
                 selected_columns = st.multiselect("Select Columns to Remove", columns)
-                if st.button("⚡ Remove Columns", use_container_width=True):
+                if st.button("⚡ Remove Columns", width='stretch'):
                     output, filename = add_modify.remove_columns(uploaded_file, selected_columns)
                     if output:
                         st.success("✅ Columns removed successfully!")
-                        st.download_button("📥 Download Modified File", data=output, file_name=f"{filename}_modified.xlsx", use_container_width=True)
+                        st.download_button("📥 Download Modified File", data=output, file_name=f"{filename}_modified.xlsx", width='stretch')
                     else:
                         st.error(f"❌ Error: {filename}")
             else:
@@ -211,7 +210,7 @@ with tab2:
         uploaded_file = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"])
         if uploaded_file:
             df = data_tools.load_excel(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
+            st.dataframe(df.head(), width='stretch')
             operation = st.selectbox("Select Operation", ["Merge Columns", "Split Column", "Clean Data", "Validate Data"])
             st.divider()
 
@@ -226,7 +225,7 @@ with tab2:
                         result = data_tools.merge_columns(df, cols, sep, new_col)
                         st.success("✅ Columns merged")
                         st.dataframe(result.head())
-                        st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="merged_data.xlsx", use_container_width=True)
+                        st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="merged_data.xlsx", width='stretch')
 
             elif operation == "Split Column":
                 col = st.selectbox("Select Column", df.columns)
@@ -235,7 +234,7 @@ with tab2:
                     result = data_tools.split_column(df, col, delim)
                     st.success("✅ Column split")
                     st.dataframe(result.head())
-                    st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="split_data.xlsx", use_container_width=True)
+                    st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="split_data.xlsx", width='stretch')
 
             elif operation == "Clean Data":
                 trim = st.checkbox("✂️ Trim whitespace", True)
@@ -245,7 +244,7 @@ with tab2:
                     result = data_tools.clean_data(df, trim, dedup, fill_value or None)
                     st.success("✅ Data cleaned")
                     st.dataframe(result.head())
-                    st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="cleaned_data.xlsx", use_container_width=True)
+                    st.download_button("📥 Download Excel", data_tools.to_excel_bytes(result), file_name="cleaned_data.xlsx", width='stretch')
 
             elif operation == "Validate Data":
                 if st.button("⚡ Validate Data"):
@@ -255,40 +254,3 @@ with tab2:
                     else:
                         st.warning("⚠️ Issues detected:")
                         st.json(report)
-
-# ==========================================================
-# TAB 3 — DATA PROFILER
-# ==========================================================
-with tab3:
-    st.header("📊 Data Profiler")
-    uploaded_file = st.file_uploader("📂 Upload Excel or CSV", type=["xlsx", "xls", "csv"], key="profiler_uploader")
-
-    if uploaded_file:
-        df = profiler_tools.load_file(uploaded_file)
-        st.success(f"✅ File loaded: {uploaded_file.name}")
-
-        info = profiler_tools.get_basic_info(df)
-        col1, col2, col3 = st.columns(3)
-        for i, (k, v) in enumerate(info.items()):
-            with [col1, col2, col3][i % 3]:
-                st.metric(label=k, value=v)
-
-        st.divider()
-        summary = profiler_tools.get_summary(df)
-        st.subheader("🧾 Column Summary")
-        st.dataframe(summary, use_container_width=True)
-
-        st.divider()
-        st.subheader("📉 Visual Insights")
-
-        missing_plot = profiler_tools.plot_missing_values(df)
-        if missing_plot:
-            st.image(missing_plot, caption="Missing Values by Column")
-
-        numeric_plot = profiler_tools.plot_numeric_distribution(df)
-        if numeric_plot:
-            st.image(numeric_plot, caption="Numeric Distribution")
-
-        st.divider()
-        export_data = profiler_tools.export_profile_to_excel(df, summary)
-        st.download_button("💾 Download Profile Report (Excel)", data=export_data, file_name="data_profile.xlsx", use_container_width=True)
