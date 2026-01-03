@@ -11,3 +11,7 @@ plotly
 xlsxwriter
 pyarrow
 pydantic
+fastapi
+uvicorn
+python-multipart
+requests
