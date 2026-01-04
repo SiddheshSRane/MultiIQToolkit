@@ -1,7 +1,7 @@
 /* =======================================================
    📦 MiniIQ Toolkit - Minimal Dark Theme
    Author: Siddhesh Rane
-   Version: v5.0 (Modern Refined UI)
+   Version: v5.1 (Tabs + Spacing Fixed)
    ======================================================= */
 
 /* ===== FONTS ===== */
@@ -20,65 +20,53 @@
     --color-text-muted: #A0A6B3;
     --color-border: #2A2F3C;
     --color-border-light: rgba(255, 255, 255, 0.1);
-    --spacing-xs: 0.5rem;
-    --spacing-sm: 0.75rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
-    --spacing-2xl: 2.5rem;
     --radius-sm: 6px;
     --radius-md: 8px;
     --radius-lg: 12px;
     --transition-fast: 0.15s ease;
     --transition-normal: 0.25s ease;
-    --transition-smooth: 0.3s ease;
 }
 
-/* ===== GLOBAL ===== */
+/* =======================================================
+   GLOBAL
+   ======================================================= */
 html, body, .main {
     font-family: 'Inter', sans-serif !important;
     background-color: var(--color-bg-dark);
     color: var(--color-text-primary) !important;
     line-height: 1.6;
-    padding: var(--spacing-xl) var(--spacing-2xl);
+    padding: 1.75rem 2rem;
     overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
 * {
     scroll-behavior: smooth;
 }
 
-/* Improved focus visibility for keyboard navigation */
 :focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
 
-/* ===== TYPOGRAPHY ===== */
+/* =======================================================
+   TYPOGRAPHY
+   ======================================================= */
 h1 {
     font-weight: 700 !important;
-    font-size: 2.4rem !important;
-    margin-bottom: var(--spacing-md) !important;
-    margin-top: 0 !important;
+    font-size: 2.2rem !important;
+    margin: 0 0 1rem 0 !important;
     color: var(--color-primary) !important;
-    letter-spacing: -0.02em;
 }
 
 h2 {
-    color: var(--color-text-primary) !important;
     font-weight: 600 !important;
-    font-size: 1.5rem !important;
-    margin-bottom: var(--spacing-md) !important;
-    margin-top: var(--spacing-lg) !important;
+    font-size: 1.45rem !important;
+    margin: 1.25rem 0 0.75rem !important;
 }
 
 h3 {
-    color: var(--color-text-primary) !important;
     font-weight: 600 !important;
     font-size: 1.1rem !important;
-    margin-bottom: var(--spacing-sm) !important;
 }
 
 p, .stMarkdown {
@@ -86,286 +74,240 @@ p, .stMarkdown {
     font-size: 0.95rem !important;
 }
 
-/* ===== DIVIDERS & SPACING ===== */
+/* =======================================================
+   DIVIDERS
+   ======================================================= */
 hr, .stDivider {
     border-color: var(--color-border-light) !important;
 }
 
-/* ===== TABS ===== */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
-    border-bottom: 1px solid var(--color-border-light);
-    margin-bottom: var(--spacing-lg);
+/* =======================================================
+   🔥 TABS — FIXED
+   ======================================================= */
+
+/* Pull tabs upward (remove excessive gap) */
+section[data-testid="stTabs"] {
+    margin-top: -1.2rem !important;
+    padding-top: 0 !important;
 }
 
+/* Tab list */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: none !important; /* remove floating line */
+    margin-bottom: 0.75rem;
+}
+
+/* Individual tab */
 .stTabs [data-baseweb="tab"] {
     color: var(--color-text-muted) !important;
     background-color: var(--color-bg-card);
     border-radius: 6px 6px 0 0;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: 0.45rem 0.75rem;
     font-weight: 600;
     border: none !important;
+    line-height: 1.2;
     transition: all var(--transition-normal);
 }
 
+/* Hover */
 .stTabs [data-baseweb="tab"]:hover {
     background-color: var(--color-primary-light);
     color: var(--color-primary) !important;
 }
 
+/* Active tab */
 .stTabs [aria-selected="true"] {
     background-color: var(--color-bg-card);
     color: var(--color-primary) !important;
     border-bottom: 2px solid var(--color-primary);
 }
 
-/* ===== BUTTONS ===== */
+/* =======================================================
+   BUTTONS
+   ======================================================= */
 div.stButton > button {
-    background-color: transparent;
+    background: transparent;
     color: var(--color-primary);
     border: 1.5px solid var(--color-primary);
     border-radius: var(--radius-md);
     font-weight: 600;
-    font-size: 0.95rem;
-    transition: all var(--transition-normal);
-    width: 100%;
     height: 46px;
-    cursor: pointer;
+    transition: all var(--transition-normal);
 }
 
 div.stButton > button:hover {
-    background-color: var(--color-primary);
+    background: var(--color-primary);
     color: var(--color-bg-dark);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
-}
-
-div.stButton > button:active {
-    transform: scale(0.98);
+    box-shadow: 0 4px 12px rgba(0,180,216,0.3);
 }
 
 div.stButton > button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
 }
 
-/* ===== COPY BUTTON ===== */
-button.copy-btn {
-    background-color: var(--color-primary);
-    color: var(--color-bg-dark);
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all var(--transition-normal);
-    margin-top: var(--spacing-xs);
-    box-shadow: 0 2px 8px rgba(0, 180, 216, 0.2);
-}
-
-button.copy-btn:hover {
-    background-color: var(--color-primary-hover);
-    box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
-    transform: translateY(-1px);
-}
-
-button.copy-btn:active {
-    transform: scale(0.97);
-}
-
-/* ===== DOWNLOAD BUTTONS ===== */
-.stDownloadButton > button {
-    background-color: var(--color-primary);
-    color: var(--color-bg-dark);
-    font-weight: 600;
-    border-radius: var(--radius-md);
-    border: none;
-    height: 46px;
-    transition: all var(--transition-normal);
-    box-shadow: 0 2px 8px rgba(0, 180, 216, 0.2);
-}
-
-.stDownloadButton > button:hover {
-    background-color: var(--color-primary-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 180, 216, 0.3);
-}
-
-/* ===== TEXTAREAS / INPUTS ===== */
-textarea, input[type="text"], .stTextInput>div>div>input, .stSelectbox>div>div>select {
+/* =======================================================
+   INPUTS / TEXTAREAS
+   ======================================================= */
+textarea,
+input[type="text"],
+.stTextInput input,
+.stSelectbox select {
     background-color: var(--color-bg-card) !important;
     color: var(--color-text-primary) !important;
     border: 1.5px solid var(--color-border) !important;
     border-radius: var(--radius-md) !important;
-    padding: var(--spacing-sm) !important;
-    font-size: 0.95rem !important;
-    transition: all var(--transition-smooth) !important;
+    padding: 0.6rem !important;
 }
 
-textarea:focus, input[type="text"]:focus, .stTextInput>div>div>input:focus, .stSelectbox>div>div>select:focus {
+textarea:focus,
+input:focus {
     border-color: var(--color-primary) !important;
-    background-color: var(--color-bg-card) !important;
-    box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(0,180,216,0.15);
 }
 
-textarea[disabled] {
-    opacity: 0.6;
-    cursor: not-allowed;
+/* =======================================================
+   ADVANCED COLUMN CONVERTER
+   ======================================================= */
+.adv-input-area textarea {
+    min-height: 360px !important;
+    font-family: ui-monospace, Menlo, Monaco, monospace;
 }
 
-/* Placeholder text styling */
-textarea::placeholder,
-input[type="text"]::placeholder {
-    color: var(--color-text-muted) !important;
+.adv-output-box {
+    min-height: 360px;
 }
 
-/* ===== FILE UPLOAD ===== */
+.adv-output-box .adv-output-content {
+    background: #e6ffea;
+    color: #053018;
+    border: 1px solid #c6f0d1;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 360px;
+    white-space: pre-wrap;
+}
+
+/* =======================================================
+   FILE UPLOAD
+   ======================================================= */
 .stFileUploadDropzone {
-    border: 2px dashed rgba(0, 180, 216, 0.6) !important;
-    border-radius: var(--radius-md) !important;
-    background-color: var(--color-bg-card) !important;
-    transition: all var(--transition-normal) !important;
-    padding: var(--spacing-lg) !important;
-}
-
-.stFileUploadDropzone:hover {
-    background-color: var(--color-bg-hover) !important;
-    border-color: var(--color-primary) !important;
-}
-
-/* ===== COPY FEEDBACK POPUP ===== */
-.copy-toast {
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    background-color: var(--color-primary);
-    color: var(--color-bg-dark);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
-    animation: slideInOut 2s forwards;
-    z-index: 1000;
-}
-
-@keyframes slideInOut {
-    0% {
-        opacity: 0;
-        transform: translateY(20px) translateX(0);
-    }
-    10% {
-        opacity: 1;
-        transform: translateY(0) translateX(0);
-    }
-    90% {
-        opacity: 1;
-        transform: translateY(0) translateX(0);
-    }
-    100% {
-        opacity: 0;
-        transform: translateY(20px) translateX(0);
-    }
-}
-
-/* ===== SCROLLBAR (WebKit) ===== */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
+    border: 2px dashed rgba(0,180,216,0.6);
+    border-radius: var(--radius-md);
     background: var(--color-bg-card);
 }
 
-::-webkit-scrollbar-thumb {
-    background: rgba(0, 180, 216, 0.4);
-    border-radius: 10px;
-    transition: all var(--transition-fast);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 180, 216, 0.6);
-}
-
-/* ===== RADIO BUTTONS / CHECKBOXES ===== */
-.stRadio > label,
-.stCheckbox > label {
-    color: var(--color-text-secondary) !important;
-}
-
-.stRadio > label > input,
-.stCheckbox > label > input {
-    accent-color: var(--color-primary) !important;
-}
-
-/* ===== SUCCESS/ERROR/WARNING MESSAGES ===== */
+/* =======================================================
+   ALERTS
+   ======================================================= */
 .stAlert > div {
-    border-radius: var(--radius-md) !important;
+    border-radius: var(--radius-md);
 }
 
-.stAlert [data-baseweb="notification"] {
-    border-radius: var(--radius-md) !important;
+/* =======================================================
+   SCROLLBAR
+   ======================================================= */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(0,180,216,0.4);
+    border-radius: 10px;
 }
 
-/* ===== CAPTION TEXT ===== */
-.stCaption {
-    color: var(--color-text-muted) !important;
-}
-
-/* ===== FOOTER ===== */
+/* =======================================================
+   FOOTER
+   ======================================================= */
 footer {
     visibility: hidden;
 }
 
-/* ===== RESPONSIVE DESIGN ===== */
+/* =======================================================
+   RESPONSIVE
+   ======================================================= */
 @media (max-width: 768px) {
     html, body, .main {
-        padding: var(--spacing-lg) var(--spacing-md);
+        padding: 1.25rem;
     }
 
     h1 {
         font-size: 1.8rem !important;
     }
 
-    h2 {
-        font-size: 1.3rem !important;
-    }
-
-    div.stButton > button,
-    .stDownloadButton > button {
-        height: 42px;
-        font-size: 0.9rem;
-    }
-
     .stTabs [data-baseweb="tab"] {
-        padding: var(--spacing-xs) var(--spacing-sm);
         font-size: 0.85rem;
+        padding: 0.35rem 0.6rem;
     }
 }
+/* =======================================================
+   FONT SIZE IMPROVEMENTS (READABILITY UPGRADE)
+   ======================================================= */
 
-@media (max-width: 480px) {
-    html, body, .main {
-        padding: var(--spacing-md) var(--spacing-md);
-    }
+/* Headings */
+h1 {
+    font-size: 2.6rem !important;
+    letter-spacing: -0.025em;
+}
 
+h2 {
+    font-size: 1.7rem !important;
+    letter-spacing: -0.015em;
+}
+
+h3 {
+    font-size: 1.25rem !important;
+}
+
+/* Body & markdown text */
+p,
+.stMarkdown,
+.stCaption {
+    font-size: 1rem !important;
+    line-height: 1.65;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab"] {
+    font-size: 0.95rem !important;
+    font-weight: 600;
+}
+
+/* Buttons */
+div.stButton > button,
+.stDownloadButton > button {
+    font-size: 1rem;
+}
+
+/* Inputs & selects */
+textarea,
+input[type="text"],
+.stTextInput input,
+.stSelectbox select {
+    font-size: 1rem !important;
+    line-height: 1.5;
+}
+
+/* Monospace areas (converter input/output) */
+.adv-input-area textarea,
+.adv-output-box .adv-output-content,
+pre,
+code {
+    font-size: 1.02rem !important;
+    line-height: 1.6;
+}
+@media (max-width: 768px) {
     h1 {
-        font-size: 1.5rem !important;
-        margin-bottom: var(--spacing-sm) !important;
+        font-size: 2rem !important;
     }
 
-    div.stButton > button,
-    .stDownloadButton > button {
-        height: 40px;
-        font-size: 0.85rem;
+    h2 {
+        font-size: 1.45rem !important;
     }
 
-    textarea, input[type="text"] {
-        font-size: 16px !important;
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
+    textarea,
+    input[type="text"] {
+        font-size: 16px !important; /* prevents iOS zoom */
     }
 }

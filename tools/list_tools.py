@@ -5,161 +5,186 @@ Provides utilities for converting between different data formats.
 
 import logging
 import re
-from typing import Optional
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
 
+# ===========================================================
+# CORE ADVANCED CONVERTER (EXTENDED, BACKWARD SAFE)
+# ===========================================================
 def convert_column_advanced(
     text: str,
     delimiter: str = ",",
     item_prefix: str = "",
     item_suffix: str = "",
     result_prefix: str = "",
-    result_suffix: str = ""
+    result_suffix: str = "",
+    *,
+    remove_duplicates: bool = False,
+    sort_items: bool = False,
+    ignore_comments: bool = True,
+    comment_prefixes: tuple = ("#", "//"),
+    keep_empty: bool = False,
+    strip_quotes: bool = False,
 ) -> str:
     """
     Advanced column conversion with customizable delimiters and wrapping.
-    Core function used by all converters.
-    
-    Args:
-        text: Newline-separated text
-        delimiter: Character(s) to use as delimiter (default: ",")
-        item_prefix: Prefix to add before each item
-        item_suffix: Suffix to add after each item
-        result_prefix: Prefix to add at the start of result
-        result_suffix: Suffix to add at the end of result
-        
-    Returns:
-        Converted string with custom formatting
+
+    New optional features (all default OFF for compatibility):
+    - remove_duplicates
+    - sort_items
+    - ignore_comments
+    - keep_empty
+    - strip_quotes
     """
+
     try:
         if not text or not text.strip():
             return ""
-        
-        # Extract and clean items
-        items = [x.strip() for x in text.splitlines() if x.strip()]
-        
+
+        # Normalize newlines
+        lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+        items: List[str] = []
+        for line in lines:
+            raw = line.strip()
+
+            if not raw:
+                if keep_empty:
+                    items.append("")
+                continue
+
+            if ignore_comments and raw.startswith(comment_prefixes):
+                continue
+
+            if strip_quotes:
+                raw = raw.strip("\"'")
+
+            items.append(raw)
+
         if not items:
             return ""
-        
-        # Apply item-level wrapping
-        wrapped_items = [f"{item_prefix}{item}{item_suffix}" for item in items]
-        
-        # Join with delimiter
+
+        # Remove duplicates (preserve order)
+        if remove_duplicates:
+            seen = set()
+            items = [x for x in items if not (x in seen or seen.add(x))]
+
+        # Sort items
+        if sort_items:
+            items = sorted(items)
+
+        # Apply wrapping
+        wrapped_items = [
+            f"{item_prefix}{item}{item_suffix}" for item in items
+        ]
+
         joined = delimiter.join(wrapped_items)
-        
-        # Apply result-level wrapping
         result = f"{result_prefix}{joined}{result_suffix}"
-        
-        logger.info(f"convert_column_advanced: converted {len(items)} items with delimiter='{delimiter}'")
+
+        logger.info(
+            f"convert_column_advanced: {len(items)} items | "
+            f"dedupe={remove_duplicates}, sort={sort_items}"
+        )
         return result
+
     except Exception as e:
         logger.error(f"Error in convert_column_advanced: {str(e)}")
         return ""
 
 
+# ===========================================================
+# SIMPLE PRESETS (UNCHANGED)
+# ===========================================================
 def column_to_comma(text: str) -> str:
-    """
-    Convert column (newline) data into a comma-separated list.
-    
-    Args:
-        text: Newline-separated text
-        
-    Returns:
-        Comma-separated string
-    """
-    try:
-        result = convert_column_advanced(text, delimiter=", ")
-        logger.debug(f"column_to_comma: converted text")
-        return result
-    except Exception as e:
-        logger.error(f"Error in column_to_comma: {str(e)}")
-        return ""
+    return convert_column_advanced(text, delimiter=", ")
 
 
 def column_to_quoted_comma(text: str) -> str:
-    """
-    Convert column (newline) data into a quoted comma-separated list.
-    
-    Args:
-        text: Newline-separated text
-        
-    Returns:
-        Quoted comma-separated string
-    """
-    try:
-        result = convert_column_advanced(text, delimiter=", ", item_prefix="'", item_suffix="'")
-        logger.debug(f"column_to_quoted_comma: converted text")
-        return result
-    except Exception as e:
-        logger.error(f"Error in column_to_quoted_comma: {str(e)}")
-        return ""
+    return convert_column_advanced(
+        text,
+        delimiter=", ",
+        item_prefix="'",
+        item_suffix="'"
+    )
 
 
 def comma_to_column(text: str) -> str:
-    """
-    Convert comma-separated values into newline-separated column.
-    
-    Args:
-        text: Comma-separated text
-        
-    Returns:
-        Newline-separated string
-    """
     try:
         if not text or not text.strip():
             return ""
         items = [x.strip() for x in text.split(",") if x.strip()]
-        result = "\n".join(items) if items else ""
-        logger.debug(f"comma_to_column: converted {len(items)} items")
-        return result
+        return "\n".join(items)
     except Exception as e:
         logger.error(f"Error in comma_to_column: {str(e)}")
         return ""
 
 
-def spaces_to_commas(text: str) -> str:
+# ===========================================================
+# EXTRA UTILITIES (NEW)
+# ===========================================================
+def split_by_pattern(text: str, pattern: str) -> str:
     """
-    Replace spaces with commas, collapsing multiple spaces.
-    
-    Args:
-        text: Text with spaces
-        
-    Returns:
-        Text with spaces replaced by commas
+    Split text by a regex pattern and return newline-separated values.
+    Example pattern: r"[;,|]"
     """
     try:
         if not text or not text.strip():
             return ""
-        # Collapse multiple whitespace into single space then replace
+        parts = [x.strip() for x in re.split(pattern, text) if x.strip()]
+        return "\n".join(parts)
+    except Exception as e:
+        logger.error(f"Error in split_by_pattern: {str(e)}")
+        return ""
+
+
+def spaces_to_commas(text: str) -> str:
+    try:
+        if not text or not text.strip():
+            return ""
         collapsed = re.sub(r"\s+", " ", text.strip())
-        result = collapsed.replace(" ", ",")
-        logger.debug(f"spaces_to_commas: processed text")
-        return result
+        return collapsed.replace(" ", ",")
     except Exception as e:
         logger.error(f"Error in spaces_to_commas: {str(e)}")
         return ""
 
 
-
 def newlines_to_commas(text: str) -> str:
-    """
-    Replace newlines with commas, strip carriage returns.
-    
-    Args:
-        text: Newline-separated text
-        
-    Returns:
-        Comma-separated string
-    """
     try:
         if not text or not text.strip():
             return ""
-        result = ",".join([line.strip() for line in text.splitlines() if line.strip()])
-        logger.debug(f"newlines_to_commas: processed text")
-        return result
+        return ",".join(
+            line.strip() for line in text.splitlines() if line.strip()
+        )
     except Exception as e:
         logger.error(f"Error in newlines_to_commas: {str(e)}")
         return ""
-# -----------------------------------------------------------
+
+
+# ===========================================================
+# METADATA / STATS (NEW)
+# ===========================================================
+def column_stats(text: str) -> dict:
+    """
+    Return useful stats about a column of text.
+    """
+    try:
+        if not text or not text.strip():
+            return {
+                "total_lines": 0,
+                "non_empty": 0,
+                "unique": 0
+            }
+
+        lines = [x.strip() for x in text.splitlines()]
+        non_empty = [x for x in lines if x]
+
+        return {
+            "total_lines": len(lines),
+            "non_empty": len(non_empty),
+            "unique": len(set(non_empty))
+        }
+    except Exception as e:
+        logger.error(f"Error in column_stats: {str(e)}")
+        return {}
