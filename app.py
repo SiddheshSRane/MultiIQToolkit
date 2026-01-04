@@ -1,6 +1,33 @@
 import streamlit as st
+import json
+import logging
+from typing import Optional
 from tools import list_tools, file_tools, add_modify
 import pandas as pd
+from helpers import (
+    PAGE_TITLE,
+    PAGE_ICON,
+    LAYOUT,
+    INITIAL_SIDEBAR_STATE,
+    MAX_FILE_SIZE_BYTES,
+    MAX_FILE_SIZE_MB,
+    validate_text_input,
+    validate_file_extension,
+    format_error_message,
+    render_copy_button,
+)
+
+# ===== LOGGING SETUP =====
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# ===== PAGE CONFIGURATION =====
+st.set_page_config(
+    page_title=PAGE_TITLE,
+    page_icon=PAGE_ICON,
+    layout=LAYOUT,
+    initial_sidebar_state=INITIAL_SIDEBAR_STATE
+)
 
 # -----------------------------------------------------------
 # PAGE CONFIGURATION
@@ -11,16 +38,30 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# -----------------------------------------------------------
-# LOAD CSS
-# -----------------------------------------------------------
-def load_css(file_name: str):
-    """Load external CSS for consistent UI styling."""
+# ===== LOAD CSS =====
+def load_css(file_name: str) -> bool:
+    """
+    Load external CSS for consistent UI styling.
+    
+    Args:
+        file_name: Path to CSS file
+        
+    Returns:
+        True if successful, False otherwise
+    """
     try:
         with open(file_name, "r") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+            logger.info(f"CSS loaded successfully from {file_name}")
+            return True
     except FileNotFoundError:
         st.warning("⚠️ Custom CSS not found. Using default Streamlit theme.")
+        logger.warning(f"CSS file not found: {file_name}")
+        return False
+    except Exception as e:
+        st.warning("⚠️ Error loading CSS. Using default Streamlit theme.")
+        logger.error(f"Error loading CSS: {str(e)}")
+        return False
 
 # Apply custom styles
 load_css("assets/style.css")
@@ -35,84 +76,173 @@ st.divider()
 # -----------------------------------------------------------
 # TABS
 # -----------------------------------------------------------
-tab1, tab2 = st.tabs(["🧠 Text & List Tools", "📂 File Tools"])
+tab1, tab2 = st.tabs(["⚙️ Advanced Converter", "📂 File Tools"])
 
 # ===========================================================
-# TAB 1 — TEXT & LIST TOOLS
+# ===========================================================
+# TAB 1 — ADVANCED CONVERTER
 # ===========================================================
 with tab1:
-    st.header("🧠 Text & List Tools")
+    st.header("⚙️ Advanced Column Converter")
+    st.caption("Convert column data with custom delimiters and wrapping")
 
-    tool_options = {
-        "📊 Column → CSV": list_tools.column_to_comma,
-        "✨ Column → Quoted CSV": list_tools.column_to_quoted_comma,
-        "📈 CSV → Column": list_tools.comma_to_column,
-        "🔗 Spaces → Commas": None,
-        "📍 Newlines → Commas": None,
-    }
+    # Show common presets first (before widgets are created)
+    st.markdown("### Common Presets (click to populate example)")
+    st.caption("Quick examples of common conversions; clicking fills input and config")
 
-    cols = st.columns(len(tool_options))
-    for i, label in enumerate(tool_options.keys()):
-        with cols[i]:
-            if st.button(label, use_container_width=True):
-                st.session_state["active_tool"] = label
+    sample_lines = "apple\nbanana\ncherry"
+
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        if st.button("📊 Comma CSV", use_container_width=True):
+            st.session_state["adv_input"] = sample_lines
+            st.session_state["adv_delimiter"] = ", "
+            st.session_state["adv_item_prefix"] = ""
+            st.session_state["adv_item_suffix"] = ""
+            st.session_state["adv_result_prefix"] = ""
+            st.session_state["adv_result_suffix"] = ""
+            st.rerun()
+    with col_p2:
+        if st.button("✨ Quoted CSV", use_container_width=True):
+            st.session_state["adv_input"] = sample_lines
+            st.session_state["adv_delimiter"] = ", "
+            st.session_state["adv_item_prefix"] = "'"
+            st.session_state["adv_item_suffix"] = "'"
+            st.session_state["adv_result_prefix"] = ""
+            st.session_state["adv_result_suffix"] = ""
+            st.rerun()
+    with col_p3:
+        if st.button("📋 Newline List", use_container_width=True):
+            st.session_state["adv_input"] = sample_lines
+            st.session_state["adv_delimiter"] = "\n"
+            st.session_state["adv_item_prefix"] = ""
+            st.session_state["adv_item_suffix"] = ""
+            st.session_state["adv_result_prefix"] = ""
+            st.session_state["adv_result_suffix"] = ""
+            st.rerun()
+
+    st.divider()
+    st.markdown("### Input Data")
+
+    # Initialize session state defaults if not present
+    if "adv_input" not in st.session_state:
+        st.session_state["adv_input"] = ""
+    if "adv_delimiter" not in st.session_state:
+        st.session_state["adv_delimiter"] = ","
+    if "adv_item_prefix" not in st.session_state:
+        st.session_state["adv_item_prefix"] = ""
+    if "adv_item_suffix" not in st.session_state:
+        st.session_state["adv_item_suffix"] = ""
+    if "adv_result_prefix" not in st.session_state:
+        st.session_state["adv_result_prefix"] = ""
+    if "adv_result_suffix" not in st.session_state:
+        st.session_state["adv_result_suffix"] = ""
+
+    text_input = st.text_area(
+        "📥 Enter your column data:",
+        height=200,
+        placeholder="Enter (or paste) your column of data here...",
+        key="adv_input"
+    )
+
+    # Configuration section
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        st.markdown("### Delimiter")
+        delimiter = st.text_input(
+            "Delimiter character(s):",
+            value=",",
+            max_chars=10,
+            key="adv_delimiter"
+        )
+        if not delimiter:
+            delimiter = ","
+
+    with col2:
+        st.markdown("### Item Wrapping")
+        item_prefix = st.text_input(
+            "Item prefix:",
+            value="",
+            max_chars=20,
+            key="adv_item_prefix",
+            placeholder="e.g., '"
+        )
+        item_suffix = st.text_input(
+            "Item suffix:",
+            value="",
+            max_chars=20,
+            key="adv_item_suffix",
+            placeholder="e.g., '"
+        )
+
+    with col3:
+        st.markdown("### Result Wrapping")
+        result_prefix = st.text_input(
+            "Result prefix:",
+            value="",
+            max_chars=20,
+            key="adv_result_prefix",
+            placeholder="e.g., ["
+        )
+        result_suffix = st.text_input(
+            "Result suffix:",
+            value="",
+            max_chars=20,
+            key="adv_result_suffix",
+            placeholder="e.g., ]"
+        )
 
     st.divider()
 
-    if "active_tool" in st.session_state:
-        selected_tool = st.session_state["active_tool"]
-        st.subheader(f"Active Tool: {selected_tool}")
+    # Convert button
+    if st.button("⚡ Convert Now", use_container_width=True, key="adv_convert_button"):
+        is_valid, error_msg = validate_text_input(text_input, operation="advanced conversion")
+        if not is_valid:
+            st.error(error_msg or "❌ Input validation failed")
+            logger.warning("Advanced conversion: validation failed")
+        else:
+            with st.spinner("Processing..."):
+                try:
+                    logger.info("Starting advanced column conversion")
+                    output = list_tools.convert_column_advanced(
+                        text_input,
+                        delimiter=delimiter,
+                        item_prefix=item_prefix,
+                        item_suffix=item_suffix,
+                        result_prefix=result_prefix,
+                        result_suffix=result_suffix
+                    )
 
-        text_input = st.text_area("📥 Input:", height=200, placeholder="Paste your text or list data here...")
+                    if output:
+                        st.success("✅ Conversion complete!")
+                        
+                        # Display output
+                        st.text_area(
+                            "📤 Output:",
+                            value=output,
+                            height=200,
+                            disabled=True
+                        )
 
-        if st.button("⚡ Convert Now", use_container_width=True, key="convert_button"):
-            if not text_input.strip():
-                st.error("❌ Please enter some data")
-            else:
-                with st.spinner("Processing..."):
-                    try:
-                        func = tool_options[selected_tool]
+                        # Copy to clipboard - use code block for reliability
+                        st.markdown("**Copy output:**")
+                        render_copy_button(output)
 
-                        # Handle manual text transformations
-                        if selected_tool == "🔗 Spaces → Commas":
-                            output = text_input.replace(" ", ",")
-                        elif selected_tool == "📍 Newlines → Commas":
-                            output = text_input.replace("\n", ",").replace("\r", "")
-                        else:
-                            output = func(text_input)
-
-                        if output:
-                            st.success("✅ Conversion complete!")
-                            st.text_area("📤 Output:", value=output, height=200, disabled=True)
-
-                            # Copy to clipboard
-                            st.markdown(f"""
-                                <button style="
-                                    margin-top:8px;
-                                    padding:8px 16px;
-                                    background-color:#00B4D8;
-                                    color:white;
-                                    border:none;
-                                    border-radius:6px;
-                                    cursor:pointer;
-                                    transition: all 0.3s ease;"
-                                onmouseover="this.style.backgroundColor='#0096C7'"
-                                onmouseout="this.style.backgroundColor='#00B4D8'"
-                                onclick="navigator.clipboard.writeText(`{output}`)">
-                                    📋 Copy to Clipboard
-                                </button>
-                            """, unsafe_allow_html=True)
-
-                            st.download_button(
-                                "📥 Download Result",
-                                data=output,
-                                file_name=f"{selected_tool.replace(' ', '_')}.txt",
-                                use_container_width=True
-                            )
-                        else:
-                            st.warning("⚠️ No output generated.")
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+                        # Download button
+                        st.download_button(
+                            "📥 Download Result",
+                            data=output,
+                            file_name="conversion.txt",
+                            use_container_width=True
+                        )
+                        logger.info("Advanced conversion completed successfully")
+                    else:
+                        st.warning("⚠️ No output generated.")
+                        logger.warning("Advanced conversion returned no data")
+                except Exception as e:
+                    error_msg = format_error_message(e, "advanced conversion")
+                    st.error(error_msg)
 
 # ===========================================================
 # TAB 2 — FILE TOOLS
@@ -135,17 +265,27 @@ with tab2:
         if st.button("⚡ Merge Excel Files", use_container_width=True):
             if not uploaded_files:
                 st.error("❌ Please upload at least one Excel file.")
+                logger.warning("Merge Excel: no files uploaded")
             else:
                 with st.spinner("Merging Excel files..."):
-                    output = file_tools.merge_excel(uploaded_files)
-                    if output:
-                        st.success("✅ Excel files merged successfully!")
-                        st.download_button(
-                            "📥 Download Merged File",
-                            data=output.getvalue(),
-                            file_name="merged_excel.xlsx",
-                            use_container_width=True
-                        )
+                    try:
+                        logger.info(f"Starting merge of {len(uploaded_files)} Excel file(s)")
+                        output = file_tools.merge_excel(uploaded_files)
+                        if output:
+                            st.success("✅ Excel files merged successfully!")
+                            st.download_button(
+                                "📥 Download Merged File",
+                                data=output.getvalue(),
+                                file_name="merged_excel.xlsx",
+                                use_container_width=True
+                            )
+                            logger.info("Excel merge completed successfully")
+                        else:
+                            st.warning("⚠️ No valid data found in uploaded files.")
+                            logger.warning("Excel merge returned no data")
+                    except Exception as e:
+                        error_msg = format_error_message(e, "Excel merge")
+                        st.error(error_msg)
 
     # ---------------------------
     # MERGE CSV FILES
@@ -155,17 +295,27 @@ with tab2:
         if st.button("⚡ Merge CSV Files", use_container_width=True):
             if not uploaded_files:
                 st.error("❌ Please upload at least one CSV file.")
+                logger.warning("Merge CSV: no files uploaded")
             else:
                 with st.spinner("Merging CSV files..."):
-                    output = file_tools.merge_csv(uploaded_files)
-                    if output:
-                        st.success("✅ CSV files merged successfully!")
-                        st.download_button(
-                            "📥 Download Merged File",
-                            data=output.getvalue(),
-                            file_name="merged_csv.csv",
-                            use_container_width=True
-                        )
+                    try:
+                        logger.info(f"Starting merge of {len(uploaded_files)} CSV file(s)")
+                        output = file_tools.merge_csv(uploaded_files)
+                        if output:
+                            st.success("✅ CSV files merged successfully!")
+                            st.download_button(
+                                "📥 Download Merged File",
+                                data=output.getvalue(),
+                                file_name="merged_csv.csv",
+                                use_container_width=True
+                            )
+                            logger.info("CSV merge completed successfully")
+                        else:
+                            st.warning("⚠️ No valid data found in uploaded files.")
+                            logger.warning("CSV merge returned no data")
+                    except Exception as e:
+                        error_msg = format_error_message(e, "CSV merge")
+                        st.error(error_msg)
 
     # ---------------------------
     # COLUMN REMOVAL TOOL (NO PREVIEW)
@@ -176,20 +326,28 @@ with tab2:
 
         if uploaded_file:
             try:
-                xl = pd.ExcelFile(uploaded_file)
-                sheet_names = xl.sheet_names
+                uploaded_file.seek(0)
+
+                xls = pd.ExcelFile(uploaded_file)
+                sheet_names = xls.sheet_names
+
+                if not sheet_names:
+                    st.error("❌ No sheets found in the Excel file.")
+                    logger.error("No sheets found in uploaded file")
+                    st.stop()
 
                 st.markdown("### 📁 Select the Sheet to Clean:")
-                selected_sheet = st.radio(
-                    "Choose a tab:",
-                    options=sheet_names,
-                    horizontal=True
-                )
+                selected_sheet = st.selectbox("Choose a tab:", options=sheet_names)
 
-                # Load sheet to get columns
+                # Load sheet to get columns preview (safe read)
                 uploaded_file.seek(0)
-                df_preview = pd.read_excel(uploaded_file, sheet_name=selected_sheet, nrows=2)
+                df_preview = pd.read_excel(uploaded_file, sheet_name=selected_sheet, nrows=50)
                 all_columns = df_preview.columns.tolist()
+
+                if not all_columns:
+                    st.error("❌ Selected sheet has no columns.")
+                    logger.error(f"No columns found in sheet: {selected_sheet}")
+                    st.stop()
 
                 st.divider()
                 st.markdown("### 1️⃣ Select Columns to Remove")
@@ -202,17 +360,17 @@ with tab2:
                 # Select/Deselect buttons
                 b1, b2 = st.columns(2)
                 with b1:
-                    if st.button("✅ Select All", use_container_width=True):
+                    if st.button("✅ Select All", use_container_width=True, key="select_all_btn"):
                         for col in all_columns:
                             st.session_state[f"col_{col}"] = True
+                        st.rerun()
                 with b2:
-                    if st.button("🚫 Deselect All", use_container_width=True):
+                    if st.button("🚫 Deselect All", use_container_width=True, key="deselect_all_btn"):
                         for col in all_columns:
                             st.session_state[f"col_{col}"] = False
+                        st.rerun()
 
-                selected_columns = [col for col in all_columns if st.session_state[f"col_{col}"]]
-
-                # ✅ Clean checkbox grid layout (scrollable)
+                # Checkbox grid layout (scrollable)
                 num_cols = len(all_columns)
                 if num_cols <= 5:
                     cols_per_row = num_cols
@@ -223,6 +381,7 @@ with tab2:
                 else:
                     cols_per_row = 5
 
+                selected_columns = []
                 with st.container():
                     st.markdown('<div style="max-height: 400px; overflow-y: auto; padding-right: 10px;">',
                                 unsafe_allow_html=True)
@@ -237,29 +396,41 @@ with tab2:
 
                 st.divider()
 
+                # Preview of resulting table
+                st.markdown("### Preview: first 10 rows after removal")
+                preview_df = df_preview.drop(columns=selected_columns, errors="ignore")
+                st.dataframe(preview_df.head(10))
+
                 # Remove columns button
-                remove_button = st.button("⚡ Remove Selected Columns",
-                                          use_container_width=True,
-                                          disabled=not selected_columns)
+                remove_button = st.button("⚡ Remove Selected Columns", use_container_width=True, disabled=not selected_columns)
 
                 if remove_button:
                     with st.spinner("Removing selected columns..."):
-                        uploaded_file.seek(0)
-                        output, filename = add_modify.remove_columns(uploaded_file, selected_columns, selected_sheet)
+                        try:
+                            uploaded_file.seek(0)
+                            output, filename = add_modify.remove_columns(uploaded_file, selected_columns, selected_sheet)
 
-                        if output:
-                            st.balloons()
-                            st.success(f"✅ Columns removed from '{selected_sheet}'!")
-                            st.download_button(
-                                "📥 Download Cleaned File",
-                                data=output,
-                                file_name=f"{filename}_{selected_sheet}_cleaned.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                use_container_width=True
-                            )
-                        else:
-                            st.error("❌ Failed to process the file.")
+                            if output:
+                                st.balloons()
+                                st.success(f"✅ Columns removed from '{selected_sheet}'!")
+                                data = output.getvalue() if hasattr(output, 'getvalue') else output
+                                st.download_button(
+                                    "📥 Download Cleaned File",
+                                    data=data,
+                                    file_name=f"{filename}_{selected_sheet}_cleaned.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True
+                                )
+                                logger.info(f"Successfully removed columns from '{selected_sheet}'")
+                            else:
+                                st.error(f"❌ Failed to process the file: {filename}")
+                                logger.error(f"Column removal failed: {filename}")
+                        except Exception as e:
+                            error_msg = format_error_message(e, "column removal")
+                            st.error(error_msg)
             except Exception as e:
-                st.error(f"❌ Error processing file: {e}")
+                error_msg = format_error_message(e, "file processing")
+                st.error(error_msg)
+                logger.error(f"Error processing file: {str(e)}")
         else:
             st.info("ℹ️ Please upload an Excel file to get started.")    
