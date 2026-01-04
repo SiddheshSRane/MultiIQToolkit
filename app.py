@@ -152,7 +152,6 @@ with tab1:
         st.markdown("### Delimiter")
         delimiter = st.text_input(
             "Delimiter character(s):",
-            value=",",
             max_chars=10,
             key="adv_delimiter"
         )
@@ -163,14 +162,12 @@ with tab1:
         st.markdown("### Item Wrapping")
         item_prefix = st.text_input(
             "Item prefix:",
-            value="",
             max_chars=20,
             key="adv_item_prefix",
             placeholder="e.g., '"
         )
         item_suffix = st.text_input(
             "Item suffix:",
-            value="",
             max_chars=20,
             key="adv_item_suffix",
             placeholder="e.g., '"
@@ -180,14 +177,12 @@ with tab1:
         st.markdown("### Result Wrapping")
         result_prefix = st.text_input(
             "Result prefix:",
-            value="",
             max_chars=20,
             key="adv_result_prefix",
             placeholder="e.g., ["
         )
         result_suffix = st.text_input(
             "Result suffix:",
-            value="",
             max_chars=20,
             key="adv_result_suffix",
             placeholder="e.g., ]"
