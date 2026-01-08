@@ -1,0 +1,171 @@
+/* Reset */
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Light theme */
+body {
+  margin: 0;
+  background: #f6f7fb;
+  color: #1f2937;
+}
+
+/* Dark theme */
+body.dark {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+/* App container */
+.app {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Dark app */
+body.dark .app {
+  background: #020617;
+}
+
+/* Headings */
+h2 {
+  margin-top: 0;
+  font-size: 24px;
+}
+
+h4 {
+  margin-top: 24px;
+  margin-bottom: 8px;
+}
+
+/* Textareas */
+textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  resize: vertical;
+  font-size: 14px;
+}
+
+body.dark textarea {
+  background: #020617;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+/* Inputs */
+input[type="text"] {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+body.dark input[type="text"] {
+  background: #020617;
+  color: #e5e7eb;
+  border-color: #334155;
+}
+
+/* Buttons */
+button {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+button:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+
+/* Stats */
+.stats {
+  margin: 12px 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+body.dark .stats {
+  color: #94a3b8;
+}
+
+/* Options */
+.options label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Toggle */
+.toggle {
+  float: right;
+  cursor: pointer;
+  font-size: 14px;
+  color: #4f46e5;
+}
+
+body.dark .toggle {
+  color: #a5b4fc;
+}
+/* ---------- File Modify polish ---------- */
+
+.section {
+  margin-top: 24px;
+}
+
+.section h4 {
+  margin-bottom: 12px;
+  font-size: 16px;
+  color: #c7d2fe;
+}
+
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Checkbox layout */
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark .checkbox {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Action area */
+.section.action {
+  margin-top: 32px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.section.action button {
+  padding: 12px 24px;
+  font-size: 15px;
+}

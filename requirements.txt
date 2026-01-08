@@ -11,3 +11,11 @@ plotly
 xlsxwriter
 pyarrow
 pydantic
+fastapi
+uvicorn
+sqlalchemy
+fastapi
+uvicorn
+pydantic
+python-multipart
+aiofiles
