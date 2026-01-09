@@ -5,7 +5,6 @@ export default function Converter() {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [stats, setStats] = useState<any>(null);
-  const [dark, setDark] = useState(false);
 
   const [delimiter, setDelimiter] = useState(", ");
   const [itemPrefix, setItemPrefix] = useState("");
@@ -49,24 +48,14 @@ export default function Converter() {
     return () => window.removeEventListener("keydown", handler);
   }, [input]);
 
-  /* 🌙 Dark mode */
-  useEffect(() => {
-    document.body.classList.toggle("dark", dark);
-  }, [dark]);
-
   return (
-    <div className="app">
-      <span className="toggle" onClick={() => setDark(!dark)}>
-        {dark ? "☀ Light mode" : "🌙 Dark mode"}
-      </span>
-
-      <h2>MiniIQ Toolkit</h2>
-      <p style={{ color: "#6b7280", marginBottom: 16 }}>
-        Clean, fast column & text transformation
+    <div>
+      <p className="desc">
+        Clean, fast column & text transformation. Paste values below.
       </p>
 
       <textarea
-        rows={8}
+        rows={6}
         placeholder="Paste one value per line (Ctrl + Enter to convert)"
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -74,113 +63,125 @@ export default function Converter() {
 
       {stats && (
         <div className="stats">
-          Lines: {stats.total_lines} | Non-empty: {stats.non_empty} | Unique:{" "}
-          {stats.unique}
+          <strong>Lines:</strong> {stats.total_lines} <span>•</span>{" "}
+          <strong>Non-empty:</strong> {stats.non_empty} <span>•</span>{" "}
+          <strong>Unique:</strong> {stats.unique}
         </div>
       )}
 
-      <h4>Formatting</h4>
-      <input
-        type="text"
-        placeholder="Delimiter"
-        value={delimiter}
-        onChange={(e) => setDelimiter(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Item Prefix"
-        value={itemPrefix}
-        onChange={(e) => setItemPrefix(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Item Suffix"
-        value={itemSuffix}
-        onChange={(e) => setItemSuffix(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Result Prefix"
-        value={resultPrefix}
-        onChange={(e) => setResultPrefix(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Result Suffix"
-        value={resultSuffix}
-        onChange={(e) => setResultSuffix(e.target.value)}
-      />
-
-      <h4>Options</h4>
-      <div className="options">
-        <label>
+      <div className="section">
+        <h4>Formatting</h4>
+        <div className="form-grid">
           <input
-            type="checkbox"
-            checked={dedupe}
-            onChange={(e) => setDedupe(e.target.checked)}
-          />{" "}
-          Remove duplicates
-        </label>
-
-        <label>
+            type="text"
+            placeholder="Delimiter (e.g. , )"
+            value={delimiter}
+            onChange={(e) => setDelimiter(e.target.value)}
+          />
           <input
-            type="checkbox"
-            checked={sort}
-            onChange={(e) => setSort(e.target.checked)}
-          />{" "}
-          Sort items
-        </label>
-
-        <label>
+            type="text"
+            placeholder="Item Prefix"
+            value={itemPrefix}
+            onChange={(e) => setItemPrefix(e.target.value)}
+          />
           <input
-            type="checkbox"
-            checked={ignoreComments}
-            onChange={(e) => setIgnoreComments(e.target.checked)}
-          />{" "}
-          Ignore comments
-        </label>
-
-        <label>
+            type="text"
+            placeholder="Item Suffix"
+            value={itemSuffix}
+            onChange={(e) => setItemSuffix(e.target.value)}
+          />
           <input
-            type="checkbox"
-            checked={stripQuotes}
-            onChange={(e) => setStripQuotes(e.target.checked)}
-          />{" "}
-          Strip quotes
-        </label>
+            type="text"
+            placeholder="Result Prefix"
+            value={resultPrefix}
+            onChange={(e) => setResultPrefix(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Result Suffix"
+            value={resultSuffix}
+            onChange={(e) => setResultSuffix(e.target.value)}
+          />
+        </div>
       </div>
 
-      <br />
+      <div className="section">
+        <h4>Options</h4>
+        <div className="options-grid">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={dedupe}
+              onChange={(e) => setDedupe(e.target.checked)}
+            />
+            Remove duplicates
+          </label>
 
-      <button onClick={handleConvert} disabled={!input}>
-        Convert
-      </button>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={sort}
+              onChange={(e) => setSort(e.target.checked)}
+            />
+            Sort items
+          </label>
 
-      <textarea
-        rows={8}
-        readOnly
-        value={output}
-        placeholder="Result"
-        style={{ marginTop: 16 }}
-      />
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={ignoreComments}
+              onChange={(e) => setIgnoreComments(e.target.checked)}
+            />
+            Ignore comments
+          </label>
 
-      <br />
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={stripQuotes}
+              onChange={(e) => setStripQuotes(e.target.checked)}
+            />
+            Strip quotes
+          </label>
+        </div>
+      </div>
 
-      <button onClick={() => navigator.clipboard.writeText(output)}>
-        Copy
-      </button>
+      <div className="section action">
+        <button onClick={handleConvert} disabled={!input}>
+          Convert
+        </button>
+      </div>
 
-      <button
-        onClick={() => {
-          const blob = new Blob([output], { type: "text/plain" });
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = "conversion.txt";
-          link.click();
-        }}
-      >
-        Download
-      </button>
+      {output && (
+        <div className="section">
+          <h4>Result</h4>
+          <textarea
+            rows={6}
+            readOnly
+            value={output}
+            placeholder="Result"
+          />
+
+          <div className="inline" style={{ marginTop: 12 }}>
+            <button className="secondary" onClick={() => navigator.clipboard.writeText(output)}>
+              Copy to Clipboard
+            </button>
+
+            <button
+              className="secondary"
+              onClick={() => {
+                const blob = new Blob([output], { type: "text/plain" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "conversion.txt";
+                link.click();
+              }}
+            >
+              Download .txt
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

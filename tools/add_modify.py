@@ -18,11 +18,14 @@ def _read_csv(file) -> pd.DataFrame:
 
 
 def _read_excel_sheets(file) -> dict:
+    # Use dtype=str to prevent pandas from inferring types (e.g. converting "00123" to 123).
+    # This preserves text IDs, leading zeros, and date strings as-is.
+    # We accept that visual formatting (colors, widths) will be reset by this read-write cycle.
     xls = pd.ExcelFile(file)
     sheets = {}
     for name in xls.sheet_names:
         try:
-            sheets[name] = pd.read_excel(xls, sheet_name=name)
+            sheets[name] = pd.read_excel(xls, sheet_name=name, dtype=str)
         except Exception:
             sheets[name] = pd.DataFrame()
     return sheets
@@ -145,11 +148,21 @@ def replace_blank_values(
         original_name = _safe_filename(file)
 
         def _fill(df: pd.DataFrame) -> pd.DataFrame:
-            if target_columns:
-                valid = [c for c in target_columns if c in df.columns]
-                df[valid] = df[valid].fillna(replace_value)
-                return df
-            return df.fillna(replace_value)
+            # First, treat whitespace-only strings and empty strings as NaN
+            # regex=True allows matching pattern ^\s*$ for empty/whitespace
+            import numpy as np
+            
+            # Apply to specific columns if requested
+            cols_to_fix = target_columns if target_columns else df.columns
+            valid_cols = [c for c in cols_to_fix if c in df.columns]
+
+            # Replace whitespace/empty with NaN
+            df[valid_cols] = df[valid_cols].replace(r'^\s*$', np.nan, regex=True)
+            
+            # Fill NaN with replacement value
+            df[valid_cols] = df[valid_cols].fillna(replace_value)
+            
+            return df
 
         if is_csv:
             df = _read_csv(file)
