@@ -6,7 +6,7 @@ import streamlit as st
 import logging
 import pandas as pd
 
-from tools import list_tools, file_tools, add_modify
+from tools import list_tools, file_tools, add_modify, file_merger
 from tools.list_tools import column_stats
 from helpers import (
     PAGE_TITLE,
@@ -239,6 +239,7 @@ with tab_files:
     options = [
         "📊 Merge Excel",
         "📄 Merge CSV",
+        "🔗 Common Merger",
         "🗑️ Remove Columns",
         "✏️ Rename Columns",
         "🧩 Replace Blanks"
@@ -274,6 +275,92 @@ with tab_files:
                 st.success("✅ Merge successful")
                 st.caption(f"📊 Result: {df.shape[0]} rows × {df.shape[1]} columns")
                 st.download_button("📥 Download", data=output.getvalue(), file_name="merged_csv.csv", use_container_width=True)
+
+    # --- Common Merger ---
+    elif st.session_state.active_section == "🔗 Common Merger":
+        files = st.file_uploader("Upload CSV/Excel files to merge", type=["csv", "xlsx", "xls"], accept_multiple_files=True)
+        
+        if files and len(files) >= 2:
+            st.markdown("### ⚙️ Merge Configuration")
+            c1, c2 = st.columns(2)
+            with c1:
+                strategy = st.radio("Merge Strategy", ["Intersection (Common Only)", "Union (All Columns)"], index=0)
+                strat_val = "intersection" if "Intersection" in strategy else "union"
+            with c2:
+                case_insensitive = st.checkbox("Case-Insensitive Match")
+                remove_duplicates = st.checkbox("Remove Duplicate Rows")
+                all_sheets = st.checkbox("Merge All Sheets (Excel)")
+
+            st.divider()
+            st.info("Analyzing files...")
+            file_data = []
+            for f in files:
+                f.seek(0)
+                file_data.append((f, f.name))
+            
+            # Preview columns
+            all_column_sets = []
+            first_file_cols_ordered = []
+            for i, (f, name) in enumerate(file_data):
+                f.seek(0)
+                if name.lower().endswith(".csv"):
+                    df = pd.read_csv(f, nrows=0)
+                else:
+                    df = pd.read_excel(f, sheet_name=0, nrows=0)
+                
+                cols = [str(c).strip() for c in df.columns]
+                if i == 0:
+                    first_file_cols_ordered = cols
+                    # Show preview of first file
+                    f.seek(0)
+                    if name.lower().endswith(".csv"):
+                        preview_df = pd.read_csv(f, nrows=5)
+                    else:
+                        preview_df = pd.read_excel(f, sheet_name=0, nrows=5)
+                    st.markdown("### 📋 Sample Data (First File)")
+                    st.dataframe(preview_df, use_container_width=True)
+                
+                target_cols = {c.lower() for c in cols} if case_insensitive else set(cols)
+                all_column_sets.append(target_cols)
+            
+            if strat_val == "intersection":
+                shared = set.intersection(*all_column_sets)
+                common_cols = [c for c in first_file_cols_ordered if (c.lower() if case_insensitive else c) in shared]
+            else:
+                # Union
+                seen = set()
+                common_cols = []
+                for s in all_column_sets:
+                    for c in s:
+                        if c not in seen:
+                            common_cols.append(c)
+                            seen.add(c)
+            
+            if common_cols:
+                st.success(f"Result will have {len(common_cols)} columns")
+                with st.expander("View Column List"):
+                    st.write(", ".join(common_cols))
+                
+                if st.button("⚡ Apply Advanced Merge", use_container_width=True):
+                    # Reset buffers
+                    for f, _ in file_data: f.seek(0)
+                    output, cols, filename = file_merger.merge_files_advanced(
+                        file_data,
+                        strategy=strat_val,
+                        case_insensitive=case_insensitive,
+                        remove_duplicates=remove_duplicates,
+                        all_sheets=all_sheets
+                    )
+                    
+                    if output:
+                        st.success(f"✅ Successfully merged into {filename}")
+                        st.download_button("📥 Download Result", data=output.getvalue(), file_name=filename, use_container_width=True)
+                    else:
+                        st.error(filename)
+            else:
+                st.error("No columns found to merge.")
+        elif files:
+            st.warning("Please upload at least 2 files.")
     # --- Remove Columns ---
     elif st.session_state.active_section == "🗑️ Remove Columns":
         file = st.file_uploader("Upload file", type=["xlsx", "xls", "csv"])

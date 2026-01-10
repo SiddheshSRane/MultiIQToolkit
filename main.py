@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -6,6 +7,7 @@ import io
 import pandas as pd
 from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_values
 from tools.list_tools import convert_column_advanced
+from tools.file_merger import merge_files_advanced
 
 app = FastAPI(
     title="MiniIQ API",
@@ -230,6 +232,119 @@ async def replace_blanks_api(
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f'attachment; filename="{error_msg}_filled{ext}"'
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =====================
+# FILE MERGER
+# =====================
+
+@app.post("/file/preview-common-columns")
+async def preview_common_columns(
+    files: List[UploadFile] = File(...),
+    strategy: str = Form("intersection"),
+    case_insensitive: bool = Form(False),
+    all_sheets: bool = Form(False),
+):
+    try:
+        all_column_sets = []
+        first_file_cols_ordered = []
+        sample_data = []
+
+        for i, file in enumerate(files):
+            contents = await file.read()
+            buffer = io.BytesIO(contents)
+            is_csv = file.filename.lower().endswith(".csv")
+
+            if is_csv:
+                # Get columns
+                df_cols = pd.read_csv(io.BytesIO(contents), nrows=0)
+                # Get sample
+                df_sample = pd.read_csv(io.BytesIO(contents), nrows=3, dtype=str)
+            else:
+                xls = pd.ExcelFile(io.BytesIO(contents))
+                sheet = xls.sheet_names[0] # Preview usually just first sheet
+                df_cols = pd.read_excel(xls, sheet_name=sheet, nrows=0)
+                df_sample = pd.read_excel(xls, sheet_name=sheet, nrows=3, dtype=str)
+            
+            cols = [str(c).strip() for c in df_cols.columns]
+            if i == 0:
+                first_file_cols_ordered = cols
+                sample_data = df_sample.values.tolist()
+                sample_headers = list(df_sample.columns)
+            
+            if case_insensitive:
+                all_column_sets.append({c.lower() for c in cols})
+            else:
+                all_column_sets.append(set(cols))
+
+        if not all_column_sets:
+            return {"columns": [], "sample": [], "file_count": 0}
+
+        if strategy == "intersection":
+            shared = set.intersection(*all_column_sets)
+            if case_insensitive:
+                common_cols = [c for c in first_file_cols_ordered if c.lower() in shared]
+            else:
+                common_cols = [c for c in first_file_cols_ordered if c in shared]
+        else:
+            # Union - simplified for preview
+            seen = set()
+            common_cols = []
+            for s in all_column_sets:
+                for c in s:
+                    if c not in seen:
+                        common_cols.append(c)
+                        seen.add(c)
+
+        return {
+            "columns": common_cols,
+            "sample": {
+                "headers": sample_headers,
+                "rows": sample_data
+            },
+            "file_count": len(files)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to preview files: {str(e)}")
+
+
+@app.post("/file/merge-common-columns")
+async def merge_advanced_api(
+    files: List[UploadFile] = File(...),
+    strategy: str = Form("intersection"),
+    case_insensitive: bool = Form(False),
+    remove_duplicates: bool = Form(False),
+    all_sheets: bool = Form(False),
+):
+    try:
+        file_data = []
+        for file in files:
+            contents = await file.read()
+            buffer = io.BytesIO(contents)
+            file_data.append((buffer, file.filename))
+
+        output, columns, filename = merge_files_advanced(
+            file_data,
+            strategy=strategy,
+            case_insensitive=case_insensitive,
+            remove_duplicates=remove_duplicates,
+            all_sheets=all_sheets
+        )
+
+        if output is None:
+            raise HTTPException(status_code=400, detail=filename)
+
+        return StreamingResponse(
+            output,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
             },
         )
     except HTTPException:

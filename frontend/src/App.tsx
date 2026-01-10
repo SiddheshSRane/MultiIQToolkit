@@ -1,9 +1,10 @@
 import Converter from "./pages/Converter";
 import FileModify from "./pages/FileModify";
+import FileMerger from "./pages/FileMerger";
 import { useState, useEffect } from "react";
 
 export default function App() {
-  const [page, setPage] = useState<"convert" | "file">("convert");
+  const [page, setPage] = useState<"convert" | "file" | "merge">("convert");
   const [dark, setDark] = useState(true);
 
   /* 🌙 Dark mode effect */
@@ -37,10 +38,17 @@ export default function App() {
         >
           File Modify
         </button>
+        <button
+          className={page === "merge" ? "active" : ""}
+          onClick={() => setPage("merge")}
+        >
+          File Merger
+        </button>
       </div>
 
       {page === "convert" && <Converter />}
       {page === "file" && <FileModify />}
+      {page === "merge" && <FileMerger />}
     </div>
   );
 }
