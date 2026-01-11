@@ -5,7 +5,11 @@ type SampleData = {
     rows: string[][];
 };
 
-export default function FileMerger() {
+interface FileMergerProps {
+    onLogAction?: (action: string, filename: string, blob: Blob) => void;
+}
+
+export default function FileMerger({ onLogAction }: FileMergerProps) {
     const [files, setFiles] = useState<File[]>([]);
     const [commonColumns, setCommonColumns] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
@@ -118,6 +122,7 @@ export default function FileMerger() {
             setResultBlob(blob);
             setResultFilename(filename);
             setStatusMsg("Files merged successfully!");
+            if (onLogAction) onLogAction("File Merge", filename, blob);
         } catch (e) {
             console.error(e);
             alert("Error merging files");

@@ -149,10 +149,5 @@ def merge_files_advanced(
         return output, list(merged_df.columns), f"merged_data_{strategy}{extension}"
 
     except Exception as e:
-        logger.error(f"merge_files_advanced error: {str(e)}")
-        return None, None, f"Merge Error: {str(e)}"
-
-
-    except Exception as e:
-        logger.error(f"merge_files_advanced error: {str(e)}")
+        logger.error(f"merge_files_advanced error: {str(e)}", exc_info=True)
         return None, None, f"Merge Error: {str(e)}"

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { convertColumn, exportXlsx } from "../api/client";
 
-export default function Converter() {
+interface ConverterProps {
+  onLogAction?: (action: string, filename: string, blob: Blob) => void;
+}
+
+export default function Converter({ onLogAction }: ConverterProps) {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [stats, setStats] = useState<any>(null);
@@ -45,6 +49,9 @@ export default function Converter() {
       const res = await convertColumn(getPayload());
       setOutput(res.result);
       setStats(res.stats);
+      if (onLogAction) {
+        onLogAction("Text Conversion", "conversion.txt", new Blob([res.result], { type: "text/plain" }));
+      }
     } catch (e) {
       alert("Conversion failed");
     } finally {
@@ -213,6 +220,7 @@ export default function Converter() {
                 link.href = URL.createObjectURL(blob);
                 link.download = "conversion.txt";
                 link.click();
+                if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
               }}
             >
               Download .txt
@@ -225,13 +233,17 @@ export default function Converter() {
                 link.href = URL.createObjectURL(blob);
                 link.download = "conversion.csv";
                 link.click();
+                if (onLogAction) onLogAction("Download CSV", "conversion.csv", blob);
               }}
             >
               Download .csv
             </button>
             <button
               className="primary"
-              onClick={() => exportXlsx(getPayload())}
+              onClick={async () => {
+                const blob = await exportXlsx(getPayload());
+                if (onLogAction && blob) onLogAction("Download XLSX", "conversion.xlsx", blob);
+              }}
               style={{ marginLeft: "auto" }}
             >
               Download .xlsx

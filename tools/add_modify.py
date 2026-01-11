@@ -82,7 +82,7 @@ def remove_columns(
         return output, original_name
 
     except Exception as e:
-        logger.error(f"remove_columns error: {str(e)}")
+        logger.error(f"remove_columns error: {str(e)}", exc_info=True)
         return None, str(e)
 
 
@@ -104,6 +104,7 @@ def bulk_rename_columns(
 
         if is_csv:
             df = _read_csv(file)
+            df.columns = [str(c).strip() for c in df.columns]
             df = df.rename(columns=rename_map)
             df.to_csv(output, index=False)
         else:
@@ -114,6 +115,7 @@ def bulk_rename_columns(
 
             for name, df in sheets.items():
                 if apply_all_sheets or name == sheet_name:
+                    df.columns = [str(c).strip() for c in df.columns]
                     sheets[name] = df.rename(columns=rename_map)
 
             _write_excel(output, sheets)
@@ -122,7 +124,7 @@ def bulk_rename_columns(
         return output, original_name
 
     except Exception as e:
-        logger.error(f"bulk_rename_columns error: {str(e)}")
+        logger.error(f"bulk_rename_columns error: {str(e)}", exc_info=True)
         return None, str(e)
 
 
@@ -144,18 +146,20 @@ def replace_blank_values(
         original_name = _safe_filename(file)
 
         def _fill(df: pd.DataFrame) -> pd.DataFrame:
-            # First, treat whitespace-only strings and empty strings as NaN
-            # regex=True allows matching pattern ^\s*$ for empty/whitespace
             import numpy as np
             
-            # Apply to specific columns if requested
+            # Standardize columns first
+            df.columns = [str(c).strip() for c in df.columns]
+            
             cols_to_fix = target_columns if target_columns else df.columns
             valid_cols = [c for c in cols_to_fix if c in df.columns]
 
-            # Replace whitespace/empty with NaN
+            if not valid_cols:
+                return df
+
+            # Faster vectorized replacement
+            # regex=True allows matching pattern ^\s*$ for empty/whitespace
             df[valid_cols] = df[valid_cols].replace(r'^\s*$', np.nan, regex=True)
-            
-            # Fill NaN with replacement value
             df[valid_cols] = df[valid_cols].fillna(replace_value)
             
             return df
@@ -177,6 +181,6 @@ def replace_blank_values(
         return output, original_name
 
     except Exception as e:
-        logger.error(f"replace_blank_values error: {str(e)}")
+        logger.error(f"replace_blank_values error: {str(e)}", exc_info=True)
         return None, str(e)
 # ==========================================================

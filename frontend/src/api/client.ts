@@ -53,4 +53,5 @@ export async function exportXlsx(payload: ConvertPayload) {
   a.download = "conversion.xlsx";
   a.click();
   window.URL.revokeObjectURL(url);
+  return blob;
 }

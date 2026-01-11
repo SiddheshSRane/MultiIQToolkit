@@ -7,7 +7,11 @@ type PreviewResponse = {
 
 type Mode = "remove" | "rename" | "replace";
 
-export default function FileModify() {
+interface FileModifyProps {
+  onLogAction?: (action: string, filename: string, blob: Blob) => void;
+}
+
+export default function FileModify({ onLogAction }: FileModifyProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
 
@@ -189,6 +193,7 @@ export default function FileModify() {
           outName = `${f.name.split(".")[0]}_modified.${f.name.split(".").pop()}`;
         }
         processedResults.push({ blob, filename: outName });
+        if (onLogAction) onLogAction(`${mode.charAt(0).toUpperCase() + mode.slice(1)} Columns`, outName, blob);
       }
 
       setResults(processedResults);
@@ -230,7 +235,7 @@ export default function FileModify() {
         <h4>1. Upload Files</h4>
         <input
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.xlsx,.xls,.zip"
           multiple
           onChange={(e) => handleFileChange(e.target.files)}
         />

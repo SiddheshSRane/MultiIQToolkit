@@ -1,18 +1,47 @@
-from typing import List
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import logging
+import time
+import os
+from typing import List, Tuple, Optional
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 import io
 import pandas as pd
 from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_values
 from tools.list_tools import convert_column_advanced
 from tools.file_merger import merge_files_advanced
+from tools.zip_handler import is_zip, process_zip_file
+
+# =====================
+# LOGGING SETUP
+# =====================
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("MiniIQ")
 
 app = FastAPI(
     title="MiniIQ API",
     version="1.0.0",
 )
+
+# =====================
+# MIDDLEWARE
+# =====================
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    logger.info(
+        f"Handled {request.method} {request.url.path} | "
+        f"Status: {response.status_code} | "
+        f"Duration: {duration:.4f}s"
+    )
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,9 +52,102 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
+# =====================
+# ERROR HANDLING
+# =====================
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error at {request.url.path}: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "An internal server error occurred.", "detail": str(exc)},
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.warning(f"HTTP {exc.status_code} at {request.url.path}: {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail},
+    )
+
 @app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {"status": "ok", "message": "MiniIQ API is running"}
+
+# =====================
+# API HELPERS
+# =====================
+
+async def flatten_files(files: List[UploadFile]) -> List[Tuple[io.BytesIO, str]]:
+    """
+    Extracts files from a list of UploadFile objects, including unpacking ZIPs.
+    Returns a list of (buffer, filename) tuples.
+    """
+    import zipfile
+    file_data = []
+    for file in files:
+        contents = await file.read()
+        if is_zip(file.filename):
+            with zipfile.ZipFile(io.BytesIO(contents)) as z:
+                for name in z.namelist():
+                    if name.endswith('/') or os.path.splitext(name)[1].lower() not in ['.csv', '.xlsx', '.xls']:
+                        continue
+                    file_data.append((io.BytesIO(z.read(name)), name))
+        else:
+            file_data.append((io.BytesIO(contents), file.filename))
+    return file_data
+
+
+async def unified_file_handler(
+    file: UploadFile,
+    processor_func,
+    args_dict,
+    action_name,
+    ext_suffix
+):
+    """
+    Standardizes ZIP and Single-file processing for modification tools.
+    """
+    data = await file.read()
+    
+    if is_zip(file.filename):
+        def zip_processor(buffer, name):
+            is_csv = name.lower().endswith(".csv")
+            try:
+                output, base_name = processor_func(buffer, **args_dict, is_csv=is_csv)
+                if output:
+                    final_ext = ".csv" if is_csv else ".xlsx"
+                    return output, f"{base_name}{ext_suffix}{final_ext}"
+            except Exception as e:
+                logger.error(f"Error processing {name} in zip: {e}") # Changed print to logger.error
+            return None, name
+
+        zip_output = process_zip_file(data, zip_processor)
+        return StreamingResponse(
+            zip_output,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{os.path.splitext(file.filename)[0]}_processed.zip"'}
+        )
+
+    # Single-file logic
+    buffer = io.BytesIO(data)
+    buffer.name = file.filename
+    is_csv = file.filename.lower().endswith(".csv")
+    
+    output, result_val = processor_func(buffer, **args_dict, is_csv=is_csv)
+    
+    if output is None:
+        raise HTTPException(status_code=400, detail=result_val)
+    
+    output.seek(0)
+    ext = ".csv" if is_csv else ".xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{result_val}{ext_suffix}{ext}"'}
+    )
+
 
 # =====================
 # TEXT CONVERTER
@@ -65,16 +187,11 @@ def convert(payload: ConvertRequest):
         case_transform=payload.case_transform,
     )
 
-    lines = payload.text.splitlines()
-    non_empty = [l for l in lines if l.strip()]
+    stats = column_stats(payload.text) # Already using column_stats
 
     return {
         "result": result,
-        "stats": {
-            "total_lines": len(lines),
-            "non_empty": len(non_empty),
-            "unique": len(set(non_empty)),
-        }
+        "stats": stats
     }
 
 
@@ -147,7 +264,10 @@ async def preview_columns(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
 
-# ... (existing endpoints)
+
+# =====================
+# MODIFICATION ENDPOINTS
+# =====================
 
 @app.post("/file/remove-columns")
 async def remove_columns_api(
@@ -156,87 +276,35 @@ async def remove_columns_api(
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
 ):
-    try:
-        data = await file.read()
-        buffer = io.BytesIO(data)
-        buffer.name = file.filename
-
-        columns_list = [c.strip() for c in columns.split(",") if c.strip()]
-        is_csv = file.filename.lower().endswith(".csv")
-
-        output, error_msg = remove_columns(
-            buffer,
-            columns_list,
-            sheet_name,
-            apply_all_sheets=all_sheets,
-            is_csv=is_csv,
-        )
-
-        if output is None:
-            raise HTTPException(status_code=400, detail=error_msg)
-
-        output.seek(0)
-        ext = ".csv" if is_csv else ".xlsx"
-        filename = f"{error_msg}_cleaned{ext}"  # base_name is returned in error_msg position on success
-
-        return StreamingResponse(
-            output,
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            },
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    columns_list = [c.strip() for c in columns.split(",") if c.strip()]
+    return await unified_file_handler(
+        file,
+        remove_columns,
+        {"columns": columns_list, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
+        "Remove",
+        "_cleaned"
+    )
 
 @app.post("/file/rename-columns")
 async def rename_columns_api(
     file: UploadFile = File(...),
-    mapping: str = Form(...),  # JSON string
+    mapping: str = Form(...),
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
 ):
+    import json
     try:
-        data = await file.read()
-        buffer = io.BytesIO(data)
-        buffer.name = file.filename
+        rename_map = json.loads(mapping)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON mapping provided.")
 
-        is_csv = file.filename.lower().endswith(".csv")
-
-        import json
-        try:
-            rename_map = json.loads(mapping)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON mapping provided.")
-
-        output, error_msg = bulk_rename_columns(
-            buffer,
-            rename_map,
-            sheet_name,
-            apply_all_sheets=all_sheets,
-            is_csv=is_csv,
-        )
-
-        if output is None:
-            raise HTTPException(status_code=400, detail=error_msg)
-
-        output.seek(0)
-        ext = ".csv" if is_csv else ".xlsx"
-        # error_msg variable holds base_name on success
-        
-        return StreamingResponse(
-            output,
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{error_msg}_renamed{ext}"'
-            },
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await unified_file_handler(
+        file,
+        bulk_rename_columns,
+        {"mapping": rename_map, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
+        "Rename",
+        "_renamed"
+    )
 
 @app.post("/file/replace-blanks")
 async def replace_blanks_api(
@@ -246,43 +314,14 @@ async def replace_blanks_api(
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
 ):
-    try:
-        data = await file.read()
-        buffer = io.BytesIO(data)
-        buffer.name = file.filename
-
-        is_csv = file.filename.lower().endswith(".csv")
-        
-        # Parse columns
-        columns_list = [c.strip() for c in columns.split(",") if c.strip()]
-
-        output, error_msg = replace_blank_values(
-            buffer,
-            replacement,
-            sheet_name,
-            apply_all_sheets=all_sheets,
-            target_columns=columns_list,
-            is_csv=is_csv,
-        )
-
-        if output is None:
-            raise HTTPException(status_code=400, detail=error_msg)
-
-        output.seek(0)
-        ext = ".csv" if is_csv else ".xlsx"
-        # error_msg variable holds base_name on success
-        
-        return StreamingResponse(
-            output,
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{error_msg}_filled{ext}"'
-            },
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    columns_list = [c.strip() for c in columns.split(",") if c.strip()]
+    return await unified_file_handler(
+        file,
+        replace_blank_values,
+        {"replacement": replacement, "sheet_name": sheet_name, "apply_all_sheets": all_sheets, "target_columns": columns_list},
+        "Replace",
+        "_modified"
+    )
 
 
 # =====================
@@ -297,63 +336,23 @@ async def preview_common_columns(
     all_sheets: bool = Form(False),
 ):
     try:
-        all_column_sets = []
-        first_file_cols_ordered = []
-        sample_data = []
-
-        for i, file in enumerate(files):
-            contents = await file.read()
-            buffer = io.BytesIO(contents)
-            is_csv = file.filename.lower().endswith(".csv")
-
-            if is_csv:
-                # Get columns
-                df_cols = pd.read_csv(io.BytesIO(contents), nrows=0)
-                # Get sample
-                df_sample = pd.read_csv(io.BytesIO(contents), nrows=3, dtype=str)
-            else:
-                xls = pd.ExcelFile(io.BytesIO(contents))
-                sheet = xls.sheet_names[0] # Preview usually just first sheet
-                df_cols = pd.read_excel(xls, sheet_name=sheet, nrows=0)
-                df_sample = pd.read_excel(xls, sheet_name=sheet, nrows=3, dtype=str)
-            
-            cols = [str(c).strip() for c in df_cols.columns]
-            if i == 0:
-                first_file_cols_ordered = cols
-                sample_data = df_sample.values.tolist()
-                sample_headers = list(df_sample.columns)
-            
-            if case_insensitive:
-                all_column_sets.append({c.lower() for c in cols})
-            else:
-                all_column_sets.append(set(cols))
-
-        if not all_column_sets:
-            return {"columns": [], "sample": [], "file_count": 0}
-
-        if strategy == "intersection":
-            shared = set.intersection(*all_column_sets)
-            if case_insensitive:
-                common_cols = [c for c in first_file_cols_ordered if c.lower() in shared]
-            else:
-                common_cols = [c for c in first_file_cols_ordered if c in shared]
-        else:
-            # Union - simplified for preview
-            seen = set()
-            common_cols = []
-            for s in all_column_sets:
-                for c in s:
-                    if c not in seen:
-                        common_cols.append(c)
-                        seen.add(c)
-
+        file_data = await flatten_files(files)
+        
+        from tools.file_merger import preview_common_columns as get_preview
+        columns, sample = get_preview(
+            file_data, 
+            strategy=strategy, 
+            case_insensitive=case_insensitive,
+            all_sheets=all_sheets
+        )
+        
         return {
-            "columns": common_cols,
+            "columns": columns,
             "sample": {
-                "headers": sample_headers,
-                "rows": sample_data
+                "headers": sample[0] if sample else [],
+                "rows": sample[1:] if sample else []
             },
-            "file_count": len(files)
+            "file_count": len(file_data)
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to preview files: {str(e)}")
@@ -366,18 +365,14 @@ async def merge_advanced_api(
     case_insensitive: bool = Form(False),
     remove_duplicates: bool = Form(False),
     all_sheets: bool = Form(False),
-    selected_columns: str = Form(None), # Comma-separated list
+    selected_columns: str = Form(None),
     trim_whitespace: bool = Form(False),
     casing: str = Form("none"),
     include_source_col: bool = Form(True),
 ):
     try:
-        file_data = []
-        for file in files:
-            contents = await file.read()
-            buffer = io.BytesIO(contents)
-            file_data.append((buffer, file.filename))
-
+        file_data = await flatten_files(files)
+        
         columns_list = None
         if selected_columns:
             columns_list = [c.strip() for c in selected_columns.split(",") if c.strip()]
@@ -400,11 +395,7 @@ async def merge_advanced_api(
         return StreamingResponse(
             output,
             media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
