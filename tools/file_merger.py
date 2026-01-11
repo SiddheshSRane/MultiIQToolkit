@@ -149,11 +149,15 @@ def merge_files_advanced(
                 
                 processed_dfs.append(df)
 
-            from functools import reduce
-            # Perform sequential merge
-            merged_df = reduce(lambda left, right: pd.merge(
-                left, right, on=join_key, how=join_mode, suffixes=("", f"_file{dfs.index(right)+1}")
-            ), processed_dfs)
+            # Perform sequential merge with clearer suffixes for overlapping columns
+            merged_df = processed_dfs[0]
+            for i, next_df in enumerate(processed_dfs[1:], start=2):
+                merged_df = pd.merge(
+                    merged_df, next_df, 
+                    on=join_key, 
+                    how=join_mode, 
+                    suffixes=("", f"_F{i}")
+                )
 
             if selected_columns:
                 # Always keep the join key
@@ -216,8 +220,10 @@ def preview_common_columns(
         if i == 0:
             first_file_cols_ordered = cols
             # Add headers and few rows for sample
-            preview_sample.append(cols)
-            preview_sample.extend(df.values.tolist())
+            preview_sample = {
+                "headers": cols,
+                "rows": df.astype(str).replace('nan', '').values.tolist()
+            }
 
         target_set = {c.lower() for c in cols} if case_insensitive else set(cols)
         column_sets.append(target_set)

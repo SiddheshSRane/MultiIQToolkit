@@ -1,8 +1,15 @@
 import { useState } from "react";
+import FileUpload from "../components/FileUpload";
+
+type SampleData = {
+  headers: string[];
+  rows: string[][];
+};
 
 type PreviewResponse = {
   columns: string[];
   sheets: string[] | null;
+  sample?: SampleData;
 };
 
 type Mode = "remove" | "rename" | "replace" | "datetime";
@@ -14,6 +21,7 @@ interface FileModifyProps {
 export default function FileModify({ onLogAction }: FileModifyProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
+  const [sample, setSample] = useState<SampleData | null>(null);
 
   // Mode state
   const [mode, setMode] = useState<Mode>("remove");
@@ -28,7 +36,6 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const [replacementValue, setReplacementValue] = useState("");
 
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [previewData, setPreviewData] = useState<string[][] | null>(null);
 
   // Result State (for batch we might have multiple)
   const [results, setResults] = useState<{ blob: Blob; filename: string }[]>([]);
@@ -70,9 +77,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   /* =========================
      Handle file upload
      ========================= */
-  const handleFileChange = async (fileList: FileList | null) => {
-    if (!fileList) return;
-    const selectedFiles = Array.from(fileList);
+  const handleFileChange = async (selectedFiles: File[]) => {
     setFiles(selectedFiles);
     setSelected([]);
     setRenameMap({});
@@ -81,7 +86,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     setSheets(null);
     setSheet(null);
     setStatusMsg(null);
-    setPreviewData(null);
+    setSample(null);
     setResults([]);
 
     if (selectedFiles.length === 0) return;
@@ -108,6 +113,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       const firstSheet = data.sheets ? data.sheets[0] : null;
       setSheet(firstSheet);
       setColumns(data.columns);
+      setSample(data.sample || null);
     } catch (e) {
       console.error(e);
       alert("Network error during preview.");
@@ -145,66 +151,63 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     setLoading(true);
     setStatusMsg(null);
     setResults([]);
-    const processedResults: { blob: Blob; filename: string }[] = [];
 
     try {
-      for (const f of files) {
-        let endpoint = "";
-        const fd = new FormData();
-        fd.append("file", f);
-        if (sheet) fd.append("sheet_name", sheet);
-        fd.append("all_sheets", String(allSheets));
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      if (sheet) fd.append("sheet_name", sheet);
+      fd.append("all_sheets", String(allSheets));
 
-        if (mode === "remove") {
-          if (selected.length === 0) { alert("Select columns to remove"); break; }
-          endpoint = "remove-columns";
-          fd.append("columns", selected.join(","));
-        } else if (mode === "rename") {
-          const activeRenames = Object.fromEntries(
-            Object.entries(renameMap).filter(([_, v]) => v && v.trim() !== "")
-          );
-          if (Object.keys(activeRenames).length === 0) { alert("Enter at least one rename"); break; }
-          endpoint = "rename-columns";
-          fd.append("mapping", JSON.stringify(activeRenames));
-        } else {
-          if (!replacementValue) { alert("Enter a replacement value"); break; }
-          endpoint = "replace-blanks";
-          fd.append("columns", selected.join(","));
-          fd.append("replacement", replacementValue);
-        }
-
-        const res = await fetch(`/api/file/${endpoint}`, {
-          method: "POST",
-          body: fd,
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(`Failed to process ${f.name}: ${errData.detail || "Unknown error"}`);
-        }
-
-        const blob = await res.blob();
-        const contentDisposition = res.headers.get("content-disposition");
-        let outName = f.name;
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename="(.+)"/);
-          if (match && match[1]) outName = match[1];
-        } else {
-          outName = `${f.name.split(".")[0]}_modified.${f.name.split(".").pop()}`;
-        }
-        processedResults.push({ blob, filename: outName });
-        if (onLogAction) onLogAction(`${mode.charAt(0).toUpperCase() + mode.slice(1)} Columns`, outName, blob);
+      let endpoint = "";
+      if (mode === "remove") {
+        if (selected.length === 0) { alert("Select columns to remove"); setLoading(false); return; }
+        endpoint = "remove-columns";
+        fd.append("columns", selected.join(","));
+      } else if (mode === "rename") {
+        const activeRenames = Object.fromEntries(
+          Object.entries(renameMap).filter(([_, v]) => v && v.trim() !== "")
+        );
+        if (Object.keys(activeRenames).length === 0) { alert("Enter at least one rename"); setLoading(false); return; }
+        endpoint = "rename-columns";
+        fd.append("mapping", JSON.stringify(activeRenames));
+      } else {
+        if (!replacementValue) { alert("Enter a replacement value"); setLoading(false); return; }
+        endpoint = "replace-blanks";
+        fd.append("columns", selected.join(","));
+        fd.append("replacement", replacementValue);
       }
 
-      setResults(processedResults);
-      setStatusMsg(`Successfully processed ${processedResults.length} file(s).`);
+      const res = await fetch(`/api/file/${endpoint}`, {
+        method: "POST",
+        body: fd,
+      });
 
-      // Update preview with the first processed file if it's CSV
-      if (processedResults.length > 0 && files[0].name.toLowerCase().endsWith(".csv")) {
-        const text = await processedResults[0].blob.text();
-        const lines = text.split(/\r?\n/).filter(l => l.trim() !== "").slice(0, 5);
-        setPreviewData(lines.map(l => l.split(",")));
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Processing failed");
       }
+
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("content-disposition");
+      let outName = files.length > 1 ? "data_refinery_batch.zip" : files[0].name;
+
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match && match[1]) outName = match[1];
+      }
+
+      const result = { blob, filename: outName };
+      setResults([result]);
+      setStatusMsg(`Successfully processed ${files.length} file(s). Result: ${outName}`);
+
+      // Auto-download result
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = outName;
+      link.click();
+
+      if (onLogAction) onLogAction(`${mode.charAt(0).toUpperCase() + mode.slice(1)} Columns`, outName, blob);
+
     } catch (e) {
       console.error(e);
       alert(e instanceof Error ? e.message : "An error occurred during processing.");
@@ -214,13 +217,11 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   };
 
   const downloadAll = () => {
-    results.forEach((res, index) => {
-      setTimeout(() => {
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(res.blob);
-        link.download = res.filename;
-        link.click();
-      }, index * 300); // Stagger downloads to avoid browser blocking
+    results.forEach((res) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(res.blob);
+      link.download = res.filename;
+      link.click();
     });
   };
 
@@ -238,17 +239,10 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
         <h4>
           <span>📄</span> Select Files
         </h4>
-        <input
-          type="file"
-          accept=".csv,.xlsx,.xls,.zip"
-          multiple
-          onChange={(e) => handleFileChange(e.target.files)}
+        <FileUpload
+          files={files}
+          onFilesSelected={handleFileChange}
         />
-        {files.length > 0 && (
-          <p className="desc" style={{ marginTop: 12, marginBottom: 0 }}>
-            <b>{files.length}</b> file(s) selected. Previewing: <i>{files[0].name}</i>
-          </p>
-        )}
 
         {sheets && (
           <div className="form-grid" style={{ marginTop: 20 }}>
@@ -313,9 +307,12 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
               </>
             ) : mode === "rename" ? (
               <>
-                <p className="desc" style={{ marginBottom: 16 }}>
-                  Enter new names for the columns you wish to rename. Others will remain unchanged.
-                </p>
+                <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <p className="desc" style={{ margin: 0 }}>
+                    Enter new names for the columns you wish to rename. Others will remain unchanged.
+                  </p>
+                  <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setRenameMap({})}>Clear All</button>
+                </div>
                 <div className="rename-list" style={{ maxHeight: "350px", overflowY: "auto" }}>
                   {columns.map((col) => (
                     <div key={col} className="rename-row">
@@ -335,8 +332,12 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
               </>
             ) : (
               <>
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <p className="desc" style={{ margin: 0 }}>Select columns to check for blanks:</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelected([...columns])}>All</button>
+                    <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelected([])}>None</button>
+                  </div>
                 </div>
                 <div className="checkbox-grid" style={{ maxHeight: "180px", overflowY: "auto", marginBottom: 20 }}>
                   {columns.map((col) => (
@@ -394,25 +395,25 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
         </div>
       )}
 
-      {previewData && (
+      {sample && (
         <div className="section">
           <h4>
-            <span>🔍</span> Data Preview (Processed Rows)
+            <span>🔍</span> Data Preview (Top 5 rows of {files[0]?.name})
           </h4>
-          <div style={{ overflowX: "auto", marginTop: 12 }}>
-            <table>
+          <div style={{ overflowX: "auto", marginTop: 12, borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr>
-                  {previewData[0].map((h, i) => (
-                    <th key={i} style={{ padding: "12px", textAlign: "left" }}>{h}</th>
+                <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                  {sample.headers.map((h, i) => (
+                    <th key={i} style={{ padding: "12px", textAlign: "left", fontSize: "12px", borderBottom: "1px solid var(--glass-border)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {previewData.slice(1).map((row, i) => (
-                  <tr key={i}>
+                {sample.rows.map((row, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                     {row.map((cell, j) => (
-                      <td key={j} style={{ padding: "12px" }}>{cell}</td>
+                      <td key={j} style={{ padding: "12px", fontSize: "12px", opacity: 0.8 }}>{cell}</td>
                     ))}
                   </tr>
                 ))}

@@ -99,53 +99,65 @@ async def flatten_files(files: List[UploadFile]) -> List[Tuple[io.BytesIO, str]]
     return file_data
 
 
-async def unified_file_handler(
-    file: UploadFile,
+async def unified_batch_handler(
+    files: List[UploadFile],
     processor_func,
     args_dict,
     action_name,
     ext_suffix
 ):
     """
-    Standardizes ZIP and Single-file processing for modification tools.
+    Handles multiple files (and ZIPs) and returns a single file or a ZIP of processed files.
     """
-    data = await file.read()
+    import zipfile
+    flat_files = await flatten_files(files)
     
-    if is_zip(file.filename):
-        def zip_processor(buffer, name):
-            is_csv = name.lower().endswith(".csv")
+    if not flat_files:
+        raise HTTPException(status_code=400, detail="No valid CSV or Excel files found.")
+
+    # If only one file was uploaded (or one file found in zip)
+    if len(flat_files) == 1:
+        buffer, filename = flat_files[0]
+        is_csv = filename.lower().endswith(".csv")
+        
+        output, result_val = processor_func(buffer, **args_dict, is_csv=is_csv)
+        if output is None:
+            raise HTTPException(status_code=400, detail=result_val)
+        
+        output.seek(0)
+        ext = ".csv" if is_csv else ".xlsx"
+        # Preserve original basename if possible
+        base_name = os.path.splitext(filename)[0]
+        return StreamingResponse(
+            output,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}{ext_suffix}{ext}"'}
+        )
+
+    # Multiple files -> ZIP
+    zip_output = io.BytesIO()
+    processed_count = 0
+    with zipfile.ZipFile(zip_output, 'w', zipfile.ZIP_DEFLATED) as z:
+        for buffer, filename in flat_files:
+            is_csv = filename.lower().endswith(".csv")
             try:
                 output, base_name = processor_func(buffer, **args_dict, is_csv=is_csv)
                 if output:
                     final_ext = ".csv" if is_csv else ".xlsx"
-                    return output, f"{base_name}{ext_suffix}{final_ext}"
+                    # Deduplicate filenames in ZIP if necessary
+                    z.writestr(f"{base_name}{ext_suffix}{final_ext}", output.getvalue())
+                    processed_count += 1
             except Exception as e:
-                logger.error(f"Error processing {name} in zip: {e}") # Changed print to logger.error
-            return None, name
+                logger.error(f"Batch processing error for {filename}: {e}")
 
-        zip_output = process_zip_file(data, zip_processor)
-        return StreamingResponse(
-            zip_output,
-            media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{os.path.splitext(file.filename)[0]}_processed.zip"'}
-        )
+    if processed_count == 0:
+        raise HTTPException(status_code=400, detail="Failed to process any files in the batch.")
 
-    # Single-file logic
-    buffer = io.BytesIO(data)
-    buffer.name = file.filename
-    is_csv = file.filename.lower().endswith(".csv")
-    
-    output, result_val = processor_func(buffer, **args_dict, is_csv=is_csv)
-    
-    if output is None:
-        raise HTTPException(status_code=400, detail=result_val)
-    
-    output.seek(0)
-    ext = ".csv" if is_csv else ".xlsx"
+    zip_output.seek(0)
     return StreamingResponse(
-        output,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{result_val}{ext_suffix}{ext}"'}
+        zip_output,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="data_refinery_batch_{int(time.time())}.zip"'}
     )
 
 
@@ -283,27 +295,35 @@ async def preview_columns(
         if is_csv:
             try:
                 # Try UTF-8 first (sig handles BOM)
-                df = pd.read_csv(buffer, nrows=1, encoding='utf-8-sig')
+                df = pd.read_csv(buffer, nrows=5, encoding='utf-8-sig')
             except UnicodeDecodeError:
-                # Fallback to Latin-1 which accepts most non-UTF8 characters
+                # Fallback to Latin-1
                 buffer.seek(0)
-                df = pd.read_csv(buffer, nrows=1, encoding='latin1')
+                df = pd.read_csv(buffer, nrows=5, encoding='latin1')
             
+            sample_data = {
+                "headers": [str(c) for c in df.columns],
+                "rows": df.astype(str).replace('nan', '').values.tolist()
+            }
             return {
-                "columns": list(df.columns),
+                "columns": sample_data["headers"],
                 "sheets": None,
+                "sample": sample_data
             }
 
-        # Excel file
-        # Use dtype=str to allow safe preview even if data is mixed
+        # Excel file logic
         xls = pd.ExcelFile(buffer)
         active_sheet = sheet_name or xls.sheet_names[0]
+        df = pd.read_excel(xls, sheet_name=active_sheet, nrows=5, dtype=str)
 
-        df = pd.read_excel(xls, sheet_name=active_sheet, nrows=1, dtype=str)
-
+        sample_data = {
+            "headers": [str(c) for c in df.columns],
+            "rows": df.astype(str).replace('nan', '').values.tolist()
+        }
         return {
-            "columns": list(df.columns),
+            "columns": sample_data["headers"],
             "sheets": xls.sheet_names,
+            "sample": sample_data
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
@@ -315,14 +335,14 @@ async def preview_columns(
 
 @app.post("/api/file/remove-columns")
 async def remove_columns_api(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     columns: str = Form(...),
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
 ):
     columns_list = [c.strip() for c in columns.split(",") if c.strip()]
-    return await unified_file_handler(
-        file,
+    return await unified_batch_handler(
+        files,
         remove_columns,
         {"columns_to_remove": columns_list, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
         "Remove",
@@ -331,7 +351,7 @@ async def remove_columns_api(
 
 @app.post("/api/file/rename-columns")
 async def rename_columns_api(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     mapping: str = Form(...),
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
@@ -342,8 +362,8 @@ async def rename_columns_api(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON mapping provided.")
 
-    return await unified_file_handler(
-        file,
+    return await unified_batch_handler(
+        files,
         bulk_rename_columns,
         {"rename_map": rename_map, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
         "Rename",
@@ -352,15 +372,15 @@ async def rename_columns_api(
 
 @app.post("/api/file/replace-blanks")
 async def replace_blanks_api(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     columns: str = Form(...),
     replacement: str = Form(""),
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
 ):
     columns_list = [c.strip() for c in columns.split(",") if c.strip()]
-    return await unified_file_handler(
-        file,
+    return await unified_batch_handler(
+        files,
         replace_blank_values,
         {"replace_value": replacement, "sheet_name": sheet_name, "apply_all_sheets": all_sheets, "target_columns": columns_list},
         "Replace",
@@ -370,15 +390,15 @@ async def replace_blanks_api(
 
 @app.post("/api/file/convert-datetime")
 async def convert_datetime_api(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     column: str = Form(...),
     target_format: str = Form(...),
     sheet_name: str = Form(None),
     all_sheets: bool = Form(False),
 ):
     columns_list = [c.strip() for c in column.split(",") if c.strip()]
-    return await unified_file_handler(
-        file,
+    return await unified_batch_handler(
+        files,
         convert_datetime_column,
         {
             "column_names": columns_list,

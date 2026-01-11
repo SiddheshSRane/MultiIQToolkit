@@ -271,7 +271,11 @@ with tab_files:
         if st.button("⚡ Merge", disabled=not files, use_container_width=True):
             output = file_tools.merge_csv(files)
             if output:
-                df = pd.read_csv(output)
+                try:
+                    df = pd.read_csv(output, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    output.seek(0)
+                    df = pd.read_csv(output, encoding='latin1')
                 st.success("✅ Merge successful")
                 st.caption(f"📊 Result: {df.shape[0]} rows × {df.shape[1]} columns")
                 st.download_button("📥 Download", data=output.getvalue(), file_name="merged_csv.csv", use_container_width=True)
@@ -304,7 +308,11 @@ with tab_files:
             for i, (f, name) in enumerate(file_data):
                 f.seek(0)
                 if name.lower().endswith(".csv"):
-                    df = pd.read_csv(f, nrows=0)
+                    try:
+                        df = pd.read_csv(f, nrows=0, encoding='utf-8-sig')
+                    except UnicodeDecodeError:
+                        f.seek(0)
+                        df = pd.read_csv(f, nrows=0, encoding='latin1')
                 else:
                     df = pd.read_excel(f, sheet_name=0, nrows=0)
                 
@@ -314,7 +322,11 @@ with tab_files:
                     # Show preview of first file
                     f.seek(0)
                     if name.lower().endswith(".csv"):
-                        preview_df = pd.read_csv(f, nrows=5)
+                        try:
+                            preview_df = pd.read_csv(f, nrows=5, encoding='utf-8-sig')
+                        except UnicodeDecodeError:
+                            f.seek(0)
+                            preview_df = pd.read_csv(f, nrows=5, encoding='latin1')
                     else:
                         preview_df = pd.read_excel(f, sheet_name=0, nrows=5)
                     st.markdown("### 📋 Sample Data (First File)")

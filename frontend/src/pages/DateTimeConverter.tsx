@@ -1,4 +1,10 @@
 import { useState, useEffect } from "react";
+import FileUpload from "../components/FileUpload";
+
+interface SampleData {
+    headers: string[];
+    rows: string[][];
+}
 
 interface DateTimeConverterProps {
     onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -28,6 +34,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
     const [sheet, setSheet] = useState<string | null>(null);
     const [sheets, setSheets] = useState<string[] | null>(null);
+    const [sample, setSample] = useState<SampleData | null>(null);
     const [allSheets, setAllSheets] = useState(false);
 
     const [format, setFormat] = useState<string>("%Y-%m-%d");
@@ -63,14 +70,13 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             const firstSheet = data.sheets ? data.sheets[0] : null;
             setSheet(firstSheet);
             setColumns(data.columns);
+            setSample(data.sample || null);
         } catch (e) {
             console.error(e);
         }
     };
 
-    const handleFileChange = async (fileList: FileList | null) => {
-        if (!fileList) return;
-        const selectedFiles = Array.from(fileList);
+    const handleFileChange = async (selectedFiles: File[]) => {
         setFiles(selectedFiles);
         if (selectedFiles[0]) {
             await fetchPreview(selectedFiles[0]);
@@ -155,36 +161,39 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         setStatusMsg(null);
 
         try {
-            for (const f of files) {
-                const fd = new FormData();
-                fd.append("file", f);
-                fd.append("column", selectedCols.join(","));
-                fd.append("target_format", getTargetFormat());
-                if (sheet) fd.append("sheet_name", sheet);
-                fd.append("all_sheets", String(allSheets));
+            const fd = new FormData();
+            files.forEach(f => fd.append("files", f));
+            fd.append("column", selectedCols.join(","));
+            fd.append("target_format", getTargetFormat());
+            if (sheet) fd.append("sheet_name", sheet);
+            fd.append("all_sheets", String(allSheets));
 
-                const res = await fetch("/api/file/convert-datetime", {
-                    method: "POST",
-                    body: fd,
-                });
+            const res = await fetch("/api/file/convert-datetime", {
+                method: "POST",
+                body: fd,
+            });
 
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(`Failed for ${f.name}: ${err.detail || "Error"}`);
-                }
-
-                const blob = await res.blob();
-                const outName = `${f.name.split(".")[0]}_formatted.${f.name.split(".").pop()}`;
-
-                // For batch, we trigger download immediately for now or could collect and zip
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = outName;
-                link.click();
-
-                if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || "Error during processing");
             }
-            setStatusMsg(`Successfully processed ${files.length} file(s).`);
+
+            const blob = await res.blob();
+            const contentDisposition = res.headers.get("content-disposition");
+            let outName = files.length > 1 ? "standardized_dates_batch.zip" : files[0].name;
+
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="(.+)"/);
+                if (match && match[1]) outName = match[1];
+            }
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = outName;
+            link.click();
+
+            setStatusMsg(`Successfully processed ${files.length} file(s). Result: ${outName}`);
+            if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
         } catch (e: any) {
             alert(e.message);
         } finally {
@@ -270,10 +279,10 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                         <h4>
                             <span>📄</span> Select Files
                         </h4>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                            <input type="file" multiple accept=".csv,.xlsx,.xls" onChange={(e) => handleFileChange(e.target.files)} />
-                            {files.length > 0 && <p className="desc" style={{ margin: 0 }}><b>{files.length}</b> file(s) selected.</p>}
-                        </div>
+                        <FileUpload
+                            files={files}
+                            onFilesSelected={handleFileChange}
+                        />
                     </div>
 
                     {columns.length > 0 && (
@@ -281,6 +290,13 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                             <h4>
                                 <span>⚙️</span> Select Date Columns
                             </h4>
+                            <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <p className="desc" style={{ margin: 0 }}>Select columns to convert:</p>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelectedCols([...columns])}>All</button>
+                                    <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelectedCols([])}>None</button>
+                                </div>
+                            </div>
                             <div className="checkbox-grid" style={{ maxHeight: "150px", overflowY: "auto", padding: "8px", marginBottom: 16 }}>
                                 {columns.map(col => (
                                     <label key={col} className="checkbox">
@@ -406,8 +422,36 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 </div>
             )}
 
+            {mode === "file" && sample && (
+                <div className="section">
+                    <h4>
+                        <span>🔍</span> Data Preview (Top 5 rows of {files[0]?.name})
+                    </h4>
+                    <div style={{ overflowX: "auto", marginTop: 12, borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                                <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                                    {sample.headers.map((h, i) => (
+                                        <th key={i} style={{ padding: "12px", textAlign: "left", fontSize: "12px", borderBottom: "1px solid var(--glass-border)" }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sample.rows.map((row, i) => (
+                                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                                        {row.map((cell, j) => (
+                                            <td key={j} style={{ padding: "12px", fontSize: "12px", opacity: 0.8 }}>{cell}</td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {statusMsg && (
-                <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
+                <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)", marginTop: 24 }}>
                     <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
                         <span>✅</span> Success
                     </h4>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import FileUpload from "../components/FileUpload";
 
 type SampleData = {
     headers: string[];
@@ -36,9 +37,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
     const [resultBlob, setResultBlob] = useState<Blob | null>(null);
     const [resultFilename, setResultFilename] = useState<string | null>(null);
 
-    const handleFileChange = async (fileList: FileList | null) => {
-        if (!fileList) return;
-        const selectedFiles = Array.from(fileList);
+    const handleFileChange = async (selectedFiles: File[]) => {
         setFiles(selectedFiles);
         setCommonColumns([]);
         setSelectedCols([]);
@@ -170,24 +169,14 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                 Combine multiple CSV or Excel files with vertical stacking or horizontal joins (VLOOKUP style).
             </p>
 
-            {/* ================= FILE UPLOAD ================= */}
             <div className="section">
                 <h4>
                     <span>📄</span> Select Files
                 </h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <input
-                        type="file"
-                        accept=".csv,.xlsx,.xls"
-                        multiple
-                        onChange={(e) => handleFileChange(e.target.files)}
-                    />
-                    {files.length > 0 && (
-                        <p className="desc" style={{ margin: 0 }}>
-                            <b>{files.length}</b> file(s) selected for merging.
-                        </p>
-                    )}
-                </div>
+                <FileUpload
+                    files={files}
+                    onFilesSelected={handleFileChange}
+                />
             </div>
 
             {files.length >= 2 && (
