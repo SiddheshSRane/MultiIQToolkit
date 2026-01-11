@@ -281,7 +281,14 @@ async def preview_columns(
         is_csv = file.filename.lower().endswith(".csv")
 
         if is_csv:
-            df = pd.read_csv(buffer, nrows=1)
+            try:
+                # Try UTF-8 first (sig handles BOM)
+                df = pd.read_csv(buffer, nrows=1, encoding='utf-8-sig')
+            except UnicodeDecodeError:
+                # Fallback to Latin-1 which accepts most non-UTF8 characters
+                buffer.seek(0)
+                df = pd.read_csv(buffer, nrows=1, encoding='latin1')
+            
             return {
                 "columns": list(df.columns),
                 "sheets": None,

@@ -14,7 +14,12 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 def _read_csv(file) -> pd.DataFrame:
-    return pd.read_csv(file)
+    try:
+        if hasattr(file, 'seek'): file.seek(0)
+        return pd.read_csv(file, encoding='utf-8-sig')
+    except UnicodeDecodeError:
+        if hasattr(file, 'seek'): file.seek(0)
+        return pd.read_csv(file, encoding='latin1')
 
 
 def _read_excel_sheets(file) -> dict:

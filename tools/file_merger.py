@@ -32,7 +32,12 @@ def merge_files_advanced(
             
             # Read logic
             if is_csv:
-                df_read = pd.read_csv(buffer, dtype=str)
+                try:
+                    buffer.seek(0)
+                    df_read = pd.read_csv(buffer, dtype=str, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    buffer.seek(0)
+                    df_read = pd.read_csv(buffer, dtype=str, encoding='latin1')
                 df_list = [df_read]
             else:
                 xls = pd.ExcelFile(buffer)
