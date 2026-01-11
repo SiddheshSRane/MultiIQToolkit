@@ -23,24 +23,27 @@ def convert_column_advanced(
     *,
     remove_duplicates: bool = False,
     sort_items: bool = False,
+    reverse_items: bool = False,
     ignore_comments: bool = True,
     comment_prefixes: tuple = ("#", "//"),
     keep_empty: bool = False,
     strip_quotes: bool = False,
+    trim_items: bool = False,
+    case_transform: str = "none",  # "none", "upper", "lower", "title"
 ) -> str:
     """
     Advanced column conversion with customizable delimiters and wrapping.
 
-    New optional features (all default OFF for compatibility):
+    Features:
     - remove_duplicates
-    - sort_items
+    - sort_items / reverse_items
     - ignore_comments
-    - keep_empty
-    - strip_quotes
+    - trim_items / strip_quotes
+    - case_transform (upper, lower, title)
     """
 
     try:
-        if not text or not text.strip():
+        if not text:
             return ""
 
         # Normalize newlines
@@ -48,18 +51,23 @@ def convert_column_advanced(
 
         items: List[str] = []
         for line in lines:
-            raw = line.strip()
+            raw = line.strip() if trim_items else line
 
-            if not raw:
-                if keep_empty:
-                    items.append("")
+            if not raw and not keep_empty:
                 continue
 
-            if ignore_comments and raw.startswith(comment_prefixes):
+            if ignore_comments and raw.strip().startswith(comment_prefixes):
                 continue
 
             if strip_quotes:
                 raw = raw.strip("\"'")
+
+            if case_transform == "upper":
+                raw = raw.upper()
+            elif case_transform == "lower":
+                raw = raw.lower()
+            elif case_transform == "title":
+                raw = raw.title()
 
             items.append(raw)
 
@@ -74,6 +82,10 @@ def convert_column_advanced(
         # Sort items
         if sort_items:
             items = sorted(items)
+        
+        # Reverse items
+        if reverse_items:
+            items = items[::-1]
 
         # Apply wrapping
         wrapped_items = [
@@ -85,7 +97,7 @@ def convert_column_advanced(
 
         logger.info(
             f"convert_column_advanced: {len(items)} items | "
-            f"dedupe={remove_duplicates}, sort={sort_items}"
+            f"dedupe={remove_duplicates}, sort={sort_items}, reverse={reverse_items}"
         )
         return result
 

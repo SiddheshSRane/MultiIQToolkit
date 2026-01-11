@@ -10,10 +10,15 @@ def merge_files_advanced(
     strategy: str = "intersection",  # "intersection" or "union"
     case_insensitive: bool = False,
     remove_duplicates: bool = False,
-    all_sheets: bool = False
+    all_sheets: bool = False,
+    selected_columns: Optional[List[str]] = None,
+    trim_whitespace: bool = False,
+    casing: str = "none",  # "none", "upper", "lower"
+    include_source_col: bool = True
 ) -> Tuple[Optional[BytesIO], Optional[List[str]], str]:
     """
-    Advanced file merger with support for strategies, case-sensitivity, and deduplication.
+    Advanced file merger with support for strategies, case-sensitivity, deduplication,
+    column selection, and data cleaning.
     """
     if not files:
         return None, None, "No files provided."
@@ -38,19 +43,24 @@ def merge_files_advanced(
                 # Clean column names
                 df.columns = [str(c).strip() for c in df.columns]
                 
-                if case_insensitive:
-                    # Map original columns to lowercase for matching
-                    # But we'll keep the first file's casing as the master
-                    pass 
-
                 # Source tracking
-                df = df.copy()
-                df["Source_File"] = filename
+                if include_source_col:
+                    df = df.copy()
+                    df["Source_File"] = filename
                 
                 # Handle duplicate columns in source
                 if df.columns.duplicated().any():
                     df = df.loc[:, ~df.columns.duplicated()]
                 
+                # Data cleaning
+                if trim_whitespace:
+                    df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
+                
+                if casing == "upper":
+                    df = df.apply(lambda x: x.str.upper() if x.dtype == "object" else x)
+                elif casing == "lower":
+                    df = df.apply(lambda x: x.str.lower() if x.dtype == "object" else x)
+
                 dfs.append(df)
 
         if not dfs:
@@ -58,73 +68,69 @@ def merge_files_advanced(
 
         # Column Logic
         if case_insensitive:
-            # Normalize all columns to lowercase to find shared ones
             column_sets = [set(c.lower() for c in df.columns if c != "Source_File") for df in dfs]
         else:
             column_sets = [set(c for c in df.columns if c != "Source_File") for df in dfs]
 
         if strategy == "intersection":
-            shared_lower = set.intersection(*column_sets)
-            if not shared_lower:
+            shared = set.intersection(*column_sets)
+            if not shared:
                 return None, None, "No common columns found."
             
-            # Resolve to original casing from first file
+            # Resolve to original casing from first file for shared columns
             master_cols = []
             first_df_cols = [c for c in dfs[0].columns if c != "Source_File"]
             
             if case_insensitive:
                 for c in first_df_cols:
-                    if c.lower() in shared_lower:
+                    if c.lower() in shared:
                         master_cols.append(c)
             else:
-                master_cols = [c for c in first_df_cols if c in shared_lower]
+                master_cols = [c for c in first_df_cols if c in shared]
         else:
             # Union strategy
+            seen = set()
+            master_cols = []
+            for df in dfs:
+                for c in df.columns:
+                    if c == "Source_File": continue
+                    match_val = c.lower() if case_insensitive else c
+                    if match_val not in seen:
+                        master_cols.append(c)
+                        seen.add(match_val)
+
+        # Apply column selection if provided
+        if selected_columns:
             if case_insensitive:
-                # This is tricky: union of case-insensitive columns. 
-                # We'll just use the union of original names and let pandas align what it can.
-                master_cols = list(set().union(*(set(df.columns) for df in dfs)))
-                master_cols = [c for c in master_cols if c != "Source_File"]
+                sel_lower = [c.lower() for c in selected_columns]
+                master_cols = [c for c in master_cols if c.lower() in sel_lower]
             else:
-                # Simple union of columns as they are
-                all_cols_ordered = []
-                seen = set()
-                for df in dfs:
-                    for c in df.columns:
-                        if c != "Source_File" and c not in seen:
-                            all_cols_ordered.append(c)
-                            seen.add(c)
-                master_cols = all_cols_ordered
+                master_cols = [c for c in master_cols if c in selected_columns]
 
         # Final Alignment
         final_dfs = []
         for df in dfs:
-            if strategy == "intersection":
-                if case_insensitive:
-                    # Rename df columns to match first file's casing
-                    rename_map = {}
-                    for c in df.columns:
-                        for m in master_cols:
-                            if c.lower() == m.lower():
-                                rename_map[c] = m
-                    df = df.rename(columns=rename_map)
-                final_dfs.append(df[master_cols + ["Source_File"]])
-            else:
-                # Union: just append, pandas handles NaNs
-                # But if case_insensitive, we should still align them
-                if case_insensitive:
-                    rename_map = {}
-                    for c in df.columns:
-                        for m in master_cols:
-                            if c.lower() == m.lower() and c != m:
-                                rename_map[c] = m
-                    df = df.rename(columns=rename_map)
-                final_dfs.append(df)
+            rename_map = {}
+            if case_insensitive:
+                # Rename df columns to match master_cols casing
+                for c in df.columns:
+                    if c == "Source_File": continue
+                    for m in master_cols:
+                        if c.lower() == m.lower():
+                            rename_map[c] = m
+                            break
+                df = df.rename(columns=rename_map)
+            
+            # Filter to master_cols (+ Source_File if needed)
+            cols_to_keep = [c for c in master_cols if c in df.columns]
+            if include_source_col:
+                cols_to_keep.append("Source_File")
+            
+            final_dfs.append(df[cols_to_keep])
 
         merged_df = pd.concat(final_dfs, ignore_index=True)
         
         if remove_duplicates:
-            # Drop duplicates across all columns except Source_File if possible
             cols_to_check = [c for c in merged_df.columns if c != "Source_File"]
             merged_df = merged_df.drop_duplicates(subset=cols_to_check)
 
@@ -141,6 +147,11 @@ def merge_files_advanced(
 
         output.seek(0)
         return output, list(merged_df.columns), f"merged_data_{strategy}{extension}"
+
+    except Exception as e:
+        logger.error(f"merge_files_advanced error: {str(e)}")
+        return None, None, f"Merge Error: {str(e)}"
+
 
     except Exception as e:
         logger.error(f"merge_files_advanced error: {str(e)}")

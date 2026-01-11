@@ -40,8 +40,11 @@ class ConvertRequest(BaseModel):
     result_suffix: str = ""
     remove_duplicates: bool = False
     sort_items: bool = False
+    reverse_items: bool = False
     ignore_comments: bool = True
     strip_quotes: bool = False
+    trim_items: bool = True
+    case_transform: str = "none"
 
 
 @app.post("/convert")
@@ -55,8 +58,11 @@ def convert(payload: ConvertRequest):
         result_suffix=payload.result_suffix,
         remove_duplicates=payload.remove_duplicates,
         sort_items=payload.sort_items,
+        reverse_items=payload.reverse_items,
         ignore_comments=payload.ignore_comments,
         strip_quotes=payload.strip_quotes,
+        trim_items=payload.trim_items,
+        case_transform=payload.case_transform,
     )
 
     lines = payload.text.splitlines()
@@ -70,6 +76,39 @@ def convert(payload: ConvertRequest):
             "unique": len(set(non_empty)),
         }
     }
+
+
+@app.post("/convert/export-xlsx")
+def export_xlsx(payload: ConvertRequest):
+    result = convert_column_advanced(
+        payload.text,
+        delimiter="\n", # For XLSX we usually want one item per row
+        item_prefix=payload.item_prefix,
+        item_suffix=payload.item_suffix,
+        remove_duplicates=payload.remove_duplicates,
+        sort_items=payload.sort_items,
+        reverse_items=payload.reverse_items,
+        ignore_comments=payload.ignore_comments,
+        strip_quotes=payload.strip_quotes,
+        trim_items=payload.trim_items,
+        case_transform=payload.case_transform,
+    )
+    
+    items = result.splitlines()
+    df = pd.DataFrame({"Items": items})
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="ConvertedData")
+    
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="conversion.xlsx"'
+        }
+    )
 
 # =====================
 # FILE PREVIEW
@@ -115,6 +154,7 @@ async def remove_columns_api(
     file: UploadFile = File(...),
     columns: str = Form(...),
     sheet_name: str = Form(None),
+    all_sheets: bool = Form(False),
 ):
     try:
         data = await file.read()
@@ -128,6 +168,7 @@ async def remove_columns_api(
             buffer,
             columns_list,
             sheet_name,
+            apply_all_sheets=all_sheets,
             is_csv=is_csv,
         )
 
@@ -155,6 +196,7 @@ async def rename_columns_api(
     file: UploadFile = File(...),
     mapping: str = Form(...),  # JSON string
     sheet_name: str = Form(None),
+    all_sheets: bool = Form(False),
 ):
     try:
         data = await file.read()
@@ -173,6 +215,7 @@ async def rename_columns_api(
             buffer,
             rename_map,
             sheet_name,
+            apply_all_sheets=all_sheets,
             is_csv=is_csv,
         )
 
@@ -201,6 +244,7 @@ async def replace_blanks_api(
     columns: str = Form(...),
     replacement: str = Form(""),
     sheet_name: str = Form(None),
+    all_sheets: bool = Form(False),
 ):
     try:
         data = await file.read()
@@ -216,6 +260,7 @@ async def replace_blanks_api(
             buffer,
             replacement,
             sheet_name,
+            apply_all_sheets=all_sheets,
             target_columns=columns_list,
             is_csv=is_csv,
         )
@@ -321,6 +366,10 @@ async def merge_advanced_api(
     case_insensitive: bool = Form(False),
     remove_duplicates: bool = Form(False),
     all_sheets: bool = Form(False),
+    selected_columns: str = Form(None), # Comma-separated list
+    trim_whitespace: bool = Form(False),
+    casing: str = Form("none"),
+    include_source_col: bool = Form(True),
 ):
     try:
         file_data = []
@@ -329,12 +378,20 @@ async def merge_advanced_api(
             buffer = io.BytesIO(contents)
             file_data.append((buffer, file.filename))
 
+        columns_list = None
+        if selected_columns:
+            columns_list = [c.strip() for c in selected_columns.split(",") if c.strip()]
+
         output, columns, filename = merge_files_advanced(
             file_data,
             strategy=strategy,
             case_insensitive=case_insensitive,
             remove_duplicates=remove_duplicates,
-            all_sheets=all_sheets
+            all_sheets=all_sheets,
+            selected_columns=columns_list,
+            trim_whitespace=trim_whitespace,
+            casing=casing,
+            include_source_col=include_source_col
         )
 
         if output is None:

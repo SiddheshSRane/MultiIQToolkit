@@ -49,6 +49,7 @@ def remove_columns(
     file,
     columns_to_remove: list,
     sheet_name: Optional[str],
+    apply_all_sheets: bool = False,
     is_csv: bool = False
 ) -> Tuple[Optional[BytesIO], str]:
 
@@ -66,20 +67,15 @@ def remove_columns(
         else:
             sheets = _read_excel_sheets(file)
 
-            if sheet_name not in sheets:
+            if not apply_all_sheets and sheet_name not in sheets:
                 return None, f"Sheet '{sheet_name}' not found."
 
-            df = sheets[sheet_name]
-            valid = [c for c in columns_to_remove if c in df.columns]
+            for name, df in sheets.items():
+                if apply_all_sheets or name == sheet_name:
+                    valid = [c for c in columns_to_remove if c in df.columns]
+                    if valid:
+                        sheets[name] = df.drop(columns=valid)
 
-            if not valid:
-                return None, "Selected columns not found."
-
-            df = df.drop(columns=valid)
-            if df.empty:
-                return None, "Operation would remove all data."
-
-            sheets[sheet_name] = df
             _write_excel(output, sheets)
 
         output.seek(0)

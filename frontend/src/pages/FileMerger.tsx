@@ -8,6 +8,7 @@ type SampleData = {
 export default function FileMerger() {
     const [files, setFiles] = useState<File[]>([]);
     const [commonColumns, setCommonColumns] = useState<string[]>([]);
+    const [selectedCols, setSelectedCols] = useState<string[]>([]);
     const [sample, setSample] = useState<SampleData | null>(null);
 
     // Options
@@ -15,6 +16,11 @@ export default function FileMerger() {
     const [caseInsensitive, setCaseInsensitive] = useState(false);
     const [removeDuplicates, setRemoveDuplicates] = useState(false);
     const [allSheets, setAllSheets] = useState(false);
+
+    // New Options
+    const [trimWhitespace, setTrimWhitespace] = useState(false);
+    const [casing, setCasing] = useState<"none" | "upper" | "lower">("none");
+    const [includeSource, setIncludeSource] = useState(true);
 
     const [loading, setLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -26,6 +32,7 @@ export default function FileMerger() {
         const selectedFiles = Array.from(fileList);
         setFiles(selectedFiles);
         setCommonColumns([]);
+        setSelectedCols([]);
         setSample(null);
         setStatusMsg(null);
         setResultBlob(null);
@@ -57,6 +64,7 @@ export default function FileMerger() {
 
             const data = await res.json();
             setCommonColumns(data.columns);
+            setSelectedCols(data.columns); // Initially all selected
             setSample(data.sample);
         } catch (e) {
             console.error(e);
@@ -80,6 +88,12 @@ export default function FileMerger() {
             fd.append("case_insensitive", String(caseInsensitive));
             fd.append("remove_duplicates", String(removeDuplicates));
             fd.append("all_sheets", String(allSheets));
+
+            // New options
+            fd.append("selected_columns", selectedCols.join(","));
+            fd.append("trim_whitespace", String(trimWhitespace));
+            fd.append("casing", casing);
+            fd.append("include_source_col", String(includeSource));
 
             const res = await fetch("http://localhost:8000/file/merge-common-columns", {
                 method: "POST",
@@ -110,6 +124,12 @@ export default function FileMerger() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const toggleColumn = (col: string) => {
+        setSelectedCols(prev =>
+            prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]
+        );
     };
 
     const downloadResult = () => {
@@ -179,18 +199,55 @@ export default function FileMerger() {
                                 <input type="checkbox" checked={allSheets} onChange={e => { setAllSheets(e.target.checked); fetchPreview(files, strategy, caseInsensitive, e.target.checked); }} />
                                 Merge All Sheets (Excel)
                             </label>
+                            <label className="checkbox">
+                                <input type="checkbox" checked={includeSource} onChange={e => setIncludeSource(e.target.checked)} />
+                                Include Source File Column
+                            </label>
+                        </div>
+
+                        <div style={{ marginTop: 20 }}>
+                            <label style={{ display: "block", marginBottom: 8, fontSize: "14px", fontWeight: 600 }}>Data Cleaning</label>
+                            <div className="options-grid">
+                                <label className="checkbox">
+                                    <input type="checkbox" checked={trimWhitespace} onChange={e => setTrimWhitespace(e.target.checked)} />
+                                    Trim Whitespace
+                                </label>
+                                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                                    <span style={{ fontSize: "13px" }}>Casing:</span>
+                                    <select
+                                        value={casing}
+                                        onChange={(e) => setCasing(e.target.value as any)}
+                                        style={{ padding: "4px 8px", borderRadius: "4px", background: "var(--card-bg)", color: "var(--text-main)", border: "1px solid var(--border-color)" }}
+                                    >
+                                        <option value="none">Original</option>
+                                        <option value="upper">UPPERCASE</option>
+                                        <option value="lower">lowercase</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     {/* ================= PREVIEW ================= */}
                     <div className="section">
-                        <h4>3. Preview & Columns</h4>
+                        <h4>3. Preview & Column Selection</h4>
                         {loading ? <p className="desc">Processing...</p> : (
                             <>
                                 <div style={{ marginBottom: 16 }}>
-                                    <p className="desc" style={{ marginBottom: 8 }}>Result will have <b>{commonColumns.length}</b> columns:</p>
-                                    <div className="checkbox-grid" style={{ maxHeight: "150px", overflowY: "auto", padding: "8px", background: "var(--bg-app)", borderRadius: "8px" }}>
-                                        {commonColumns.map(c => <span key={c} style={{ fontSize: "12px", opacity: 0.8 }}>{c}</span>)}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                        <p className="desc" style={{ marginBottom: 0 }}>Select columns to include (<b>{selectedCols.length}</b> of {commonColumns.length}):</p>
+                                        <div style={{ display: "flex", gap: "8px" }}>
+                                            <button className="text-btn" style={{ fontSize: "12px" }} onClick={() => setSelectedCols(commonColumns)}>All</button>
+                                            <button className="text-btn" style={{ fontSize: "12px" }} onClick={() => setSelectedCols([])}>None</button>
+                                        </div>
+                                    </div>
+                                    <div className="checkbox-grid" style={{ maxHeight: "200px", overflowY: "auto", padding: "12px", background: "var(--card-bg)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                                        {commonColumns.map(c => (
+                                            <label key={c} className="checkbox" style={{ fontSize: "12px", padding: "4px 0" }}>
+                                                <input type="checkbox" checked={selectedCols.includes(c)} onChange={() => toggleColumn(c)} />
+                                                {c}
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -200,7 +257,7 @@ export default function FileMerger() {
                                         <div style={{ overflowX: "auto", border: "1px solid var(--border-color)", borderRadius: "8px" }}>
                                             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                                                 <thead>
-                                                    <tr style={{ background: "var(--bg-app)" }}>
+                                                    <tr style={{ background: "var(--input-bg)" }}>
                                                         {sample.headers.slice(0, 5).map(h => <th key={h} style={{ padding: "8px", textAlign: "left", borderRight: "1px solid var(--border-color)" }}>{h}</th>)}
                                                         {sample.headers.length > 5 && <th style={{ padding: "8px" }}>...</th>}
                                                     </tr>
@@ -223,7 +280,7 @@ export default function FileMerger() {
 
                     {/* ================= ACTION ================= */}
                     <div className="section action">
-                        <button onClick={handleMerge} disabled={loading} className={resultBlob ? "secondary" : "primary"}>
+                        <button onClick={handleMerge} disabled={loading || selectedCols.length === 0} className={resultBlob ? "secondary" : "primary"}>
                             {loading ? "Merging..." : "Apply Merge"}
                         </button>
                         {resultBlob && (
@@ -236,7 +293,7 @@ export default function FileMerger() {
             )}
 
             {statusMsg && (
-                <div className="section" style={{ background: "var(--bg-app)", padding: "16px", borderRadius: "8px" }}>
+                <div className="section" style={{ background: "var(--card-bg)", padding: "16px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
                     <h4 style={{ color: "var(--primary)", marginTop: 0 }}>Success</h4>
                     <p style={{ marginBottom: 0 }}>{statusMsg}</p>
                 </div>
