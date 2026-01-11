@@ -47,7 +47,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       fd.append("file", f);
       if (sheetName) fd.append("sheet_name", sheetName);
 
-      const res = await fetch("http://localhost:8000/file/preview-columns", {
+      const res = await fetch("/api/file/preview-columns", {
         method: "POST",
         body: fd,
       });
@@ -92,7 +92,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       const fd = new FormData();
       fd.append("file", f);
 
-      const res = await fetch("http://localhost:8000/file/preview-columns", {
+      const res = await fetch("/api/file/preview-columns", {
         method: "POST",
         body: fd,
       });
@@ -173,7 +173,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
           fd.append("replacement", replacementValue);
         }
 
-        const res = await fetch(`http://localhost:8000/file/${endpoint}`, {
+        const res = await fetch(`/api/file/${endpoint}`, {
           method: "POST",
           body: fd,
         });

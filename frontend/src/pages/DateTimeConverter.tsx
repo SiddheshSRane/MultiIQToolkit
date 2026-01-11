@@ -47,7 +47,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             fd.append("file", f);
             if (sheetName) fd.append("sheet_name", sheetName);
 
-            const res = await fetch("http://localhost:8000/file/preview-columns", {
+            const res = await fetch("/api/file/preview-columns", {
                 method: "POST",
                 body: fd,
             });
@@ -90,7 +90,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         if (!input) return;
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:8000/convert/datetime", {
+            const res = await fetch("/api/convert/datetime", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -118,7 +118,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
     const handleDownloadPasteXlsx = async () => {
         try {
-            const res = await fetch("http://localhost:8000/convert/datetime/export-xlsx", {
+            const res = await fetch("/api/convert/datetime/export-xlsx", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -163,7 +163,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 if (sheet) fd.append("sheet_name", sheet);
                 fd.append("all_sheets", String(allSheets));
 
-                const res = await fetch("http://localhost:8000/file/convert-datetime", {
+                const res = await fetch("/api/file/convert-datetime", {
                     method: "POST",
                     body: fd,
                 });

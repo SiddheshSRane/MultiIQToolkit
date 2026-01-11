@@ -61,7 +61,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             fd.append("case_insensitive", String(caseIn));
             fd.append("all_sheets", String(sheets));
 
-            const res = await fetch("http://localhost:8000/file/preview-common-columns", {
+            const res = await fetch("/api/file/preview-common-columns", {
                 method: "POST",
                 body: fd,
             });
@@ -115,7 +115,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             fd.append("join_mode", mergeMode === "stack" ? "stack" : joinType);
             if (mergeMode === "join") fd.append("join_key", joinKey);
 
-            const res = await fetch("http://localhost:8000/file/merge-common-columns", {
+            const res = await fetch("/api/file/merge-common-columns", {
                 method: "POST",
                 body: fd,
             });

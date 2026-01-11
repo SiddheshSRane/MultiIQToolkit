@@ -15,7 +15,7 @@ export type ConvertPayload = {
 };
 
 export async function convertColumn(payload: ConvertPayload) {
-  const res = await fetch("http://localhost:8000/convert", {
+  const res = await fetch("/api/convert", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -36,7 +36,7 @@ export async function convertColumn(payload: ConvertPayload) {
 }
 
 export async function exportXlsx(payload: ConvertPayload) {
-  const res = await fetch("http://localhost:8000/convert/export-xlsx", {
+  const res = await fetch("/api/convert/export-xlsx", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
