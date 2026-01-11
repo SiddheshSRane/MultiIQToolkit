@@ -281,6 +281,9 @@ button.primary {
   background: rgba(255, 255, 255, 0.02);
   padding: 16px;
   border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .rename-row input {
@@ -299,16 +302,20 @@ button.primary {
 table {
   border-radius: 12px;
   overflow: hidden;
+  width: 100%;
 }
 
 th {
   background: rgba(255, 255, 255, 0.05) !important;
   font-weight: 700;
   color: var(--primary);
+  padding: 12px;
+  text-align: left;
 }
 
 td {
   border-color: var(--glass-border) !important;
+  padding: 12px;
 }
 
 .stats {
@@ -351,6 +358,13 @@ td {
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.flex-responsive {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 /* Drop Zone & File Staging */
@@ -460,118 +474,156 @@ td {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
-/* Responsive Media Queries */
+
+/* ==========================================================================
+     Responsive Refinement (DataRefinery Premium Mobile)
+     ========================================================================== */
 
 @media (max-width: 768px) {
   .layout-root {
-    margin: 10px auto;
-    padding: 0 10px;
+    margin: 0;
+    padding: 16px;
+    width: 100%;
+    max-width: 100%;
   }
 
-  .app {
-    padding: 24px 16px;
-    border-radius: 16px;
+  /* Header Branding */
+  .flex-responsive {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
   }
 
   h2 {
-    font-size: 22px;
+    font-size: 20px;
+    margin-bottom: 8px;
   }
 
+  /* Premium Scrollable Navigation */
   .nav-tabs {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 8px;
+    margin-bottom: 24px;
+    scrollbar-width: none;
+    /* Hide scrollbar Firefox */
+  }
+
+  .nav-tabs::-webkit-scrollbar {
+    display: none;
+    /* Hide scrollbar Chrome/Safari */
   }
 
   .nav-tabs button {
-    padding: 8px 14px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 10px 16px;
     font-size: 13px;
-    flex: 1 1 calc(50% - 8px);
-    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
   }
 
-  .form-grid,
-  .options-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  /* Content Cards */
+  .app {
+    padding: 24px 16px;
+    border-radius: 20px;
+    margin-top: 0;
   }
 
   .section {
     padding: 16px;
+    margin-top: 24px;
   }
 
+  /* Form Elements */
+  .form-grid,
+  .options-grid,
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .checkbox {
+    padding: 14px;
+  }
+
+  button {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 20px;
+  }
+
+  .mode-group {
+    width: 100%;
+    flex-direction: column;
+    padding: 4px;
+  }
+
+  .mode-group button {
+    width: 100%;
+    padding: 10px;
+  }
+
+  /* Table Handling */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+  }
+
+  th {
+    white-space: nowrap;
+  }
+
+  /* File Staging */
+  .file-staged-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .file-staged-item .remove-btn {
+    width: auto;
+    align-self: flex-end;
+    background: rgba(244, 63, 94, 0.1);
+    opacity: 1;
+  }
+
+  /* Rename UI */
+  .rename-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .rename-row>div {
+    width: 100%;
+  }
+
+  /* Activity Log */
+  .log-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .log-item button {
+    width: 100%;
+  }
+
+  /* Inline utility for mobile */
   .inline {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .mode-group {
+  .inline button {
     width: 100%;
-    justify-content: space-between;
-  }
-
-  .mode-group button {
-    flex: 1;
-    padding: 8px;
-  }
-
-  .drop-zone {
-    padding: 24px 16px;
-  }
-
-  .drop-zone-icon {
-    width: 60px;
-    height: 60px;
-    font-size: 30px;
-  }
-}
-
-@media (max-width: 480px) {
-  .nav-tabs button {
-    flex: 1 1 100%;
-  }
-
-  .checkbox-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .file-staged-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .file-staged-item .remove-btn {
-    align-self: flex-end;
-  }
-}
-
-.flex-responsive {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-@media (max-width: 768px) {
-  .flex-responsive {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .flex-responsive button {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 600px) {
-  .rename-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  .rename-row > div {
-    width: 100%;
+    margin-left: 0 !important;
   }
 }

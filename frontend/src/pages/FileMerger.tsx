@@ -313,19 +313,19 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                                 {sample && sample.rows.length > 0 && (
                                     <div style={{ marginTop: 24 }}>
                                         <p className="desc" style={{ marginBottom: 12 }}>Sample Data (First File Source):</p>
-                                        <div style={{ overflowX: "auto" }}>
+                                        <div className="table-container">
                                             <table>
                                                 <thead>
                                                     <tr>
-                                                        {sample.headers.slice(0, 5).map(h => <th key={h} style={{ padding: "12px", textAlign: "left" }}>{h}</th>)}
-                                                        {sample.headers.length > 5 && <th style={{ padding: "12px" }}>...</th>}
+                                                        {sample.headers.slice(0, 5).map(h => <th key={h}>{h}</th>)}
+                                                        {sample.headers.length > 5 && <th>...</th>}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {sample.rows.map((row, i) => (
                                                         <tr key={i}>
-                                                            {row.slice(0, 5).map((cell, j) => <td key={j} style={{ padding: "12px" }}>{cell}</td>)}
-                                                            {row.length > 5 && <td style={{ padding: "12px", opacity: 0.5 }}>...</td>}
+                                                            {row.slice(0, 5).map((cell, j) => <td key={j}>{cell}</td>)}
+                                                            {row.length > 5 && <td style={{ opacity: 0.5 }}>...</td>}
                                                         </tr>
                                                     ))}
                                                 </tbody>

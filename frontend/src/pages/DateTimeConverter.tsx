@@ -427,12 +427,12 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                     <h4>
                         <span>🔍</span> Data Preview (Top 5 rows of {files[0]?.name})
                     </h4>
-                    <div style={{ overflowX: "auto", marginTop: 12, borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <div className="table-container" style={{ marginTop: 12 }}>
+                        <table style={{ borderCollapse: "collapse" }}>
                             <thead>
                                 <tr style={{ background: "rgba(255,255,255,0.03)" }}>
                                     {sample.headers.map((h, i) => (
-                                        <th key={i} style={{ padding: "12px", textAlign: "left", fontSize: "12px", borderBottom: "1px solid var(--glass-border)" }}>{h}</th>
+                                        <th key={i} style={{ fontSize: "12px", borderBottom: "1px solid var(--glass-border)" }}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -440,7 +440,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                                 {sample.rows.map((row, i) => (
                                     <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                                         {row.map((cell, j) => (
-                                            <td key={j} style={{ padding: "12px", fontSize: "12px", opacity: 0.8 }}>{cell}</td>
+                                            <td key={j} style={{ fontSize: "12px", opacity: 0.8 }}>{cell}</td>
                                         ))}
                                     </tr>
                                 ))}
