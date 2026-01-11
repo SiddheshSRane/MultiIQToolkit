@@ -45,7 +45,7 @@ async def log_requests(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +71,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"error": exc.detail},
     )
 
-@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/api", methods=["GET", "HEAD"])
 def read_root():
     return {"status": "ok", "message": "MiniIQ API is running"}
 
@@ -169,7 +169,7 @@ class ConvertRequest(BaseModel):
     case_transform: str = "none"
 
 
-@app.post("/convert")
+@app.post("/api/convert")
 def convert(payload: ConvertRequest):
     result = convert_column_advanced(
         payload.text,
@@ -195,7 +195,7 @@ def convert(payload: ConvertRequest):
     }
 
 
-@app.post("/convert/export-xlsx")
+@app.post("/api/convert/export-xlsx")
 def export_xlsx(payload: ConvertRequest):
     result = convert_column_advanced(
         payload.text,
@@ -235,7 +235,7 @@ class DateTimeConvertRequest(BaseModel):
     text: str
     target_format: str
 
-@app.post("/convert/datetime")
+@app.post("/api/convert/datetime")
 def convert_datetime_text_api(payload: DateTimeConvertRequest):
     result = convert_dates_text(payload.text, payload.target_format)
     stats = column_stats(payload.text)
@@ -244,7 +244,7 @@ def convert_datetime_text_api(payload: DateTimeConvertRequest):
         "stats": stats
     }
 
-@app.post("/convert/datetime/export-xlsx")
+@app.post("/api/convert/datetime/export-xlsx")
 def export_datetime_xlsx(payload: DateTimeConvertRequest):
     result = convert_dates_text(payload.text, payload.target_format)
     items = result.splitlines()
@@ -268,7 +268,7 @@ def export_datetime_xlsx(payload: DateTimeConvertRequest):
 # FILE PREVIEW
 # =====================
 
-@app.post("/file/preview-columns")
+@app.post("/api/file/preview-columns")
 async def preview_columns(
     file: UploadFile = File(...),
     sheet_name: str = Form(None),
@@ -306,7 +306,7 @@ async def preview_columns(
 # MODIFICATION ENDPOINTS
 # =====================
 
-@app.post("/file/remove-columns")
+@app.post("/api/file/remove-columns")
 async def remove_columns_api(
     file: UploadFile = File(...),
     columns: str = Form(...),
@@ -322,7 +322,7 @@ async def remove_columns_api(
         "_cleaned"
     )
 
-@app.post("/file/rename-columns")
+@app.post("/api/file/rename-columns")
 async def rename_columns_api(
     file: UploadFile = File(...),
     mapping: str = Form(...),
@@ -343,7 +343,7 @@ async def rename_columns_api(
         "_renamed"
     )
 
-@app.post("/file/replace-blanks")
+@app.post("/api/file/replace-blanks")
 async def replace_blanks_api(
     file: UploadFile = File(...),
     columns: str = Form(...),
@@ -361,7 +361,7 @@ async def replace_blanks_api(
     )
 
 
-@app.post("/file/convert-datetime")
+@app.post("/api/file/convert-datetime")
 async def convert_datetime_api(
     file: UploadFile = File(...),
     column: str = Form(...),
@@ -388,7 +388,7 @@ async def convert_datetime_api(
 # FILE MERGER
 # =====================
 
-@app.post("/file/preview-common-columns")
+@app.post("/api/file/preview-common-columns")
 async def preview_common_columns(
     files: List[UploadFile] = File(...),
     strategy: str = Form("intersection"),
@@ -418,7 +418,7 @@ async def preview_common_columns(
         raise HTTPException(status_code=400, detail=f"Failed to preview files: {str(e)}")
 
 
-@app.post("/file/merge-common-columns")
+@app.post("/api/file/merge-common-columns")
 async def merge_advanced_api(
     files: List[UploadFile] = File(...),
     strategy: str = Form("intersection"),
