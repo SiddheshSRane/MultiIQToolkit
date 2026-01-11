@@ -178,3 +178,65 @@ def merge_files_advanced(
     except Exception as e:
         logger.error(f"merge_files_advanced error: {str(e)}", exc_info=True)
         return None, None, f"Merge Error: {str(e)}"
+
+def preview_common_columns(
+    files: List[Tuple[BytesIO, str]],
+    strategy: str = "intersection",
+    case_insensitive: bool = False,
+    all_sheets: bool = False
+) -> Tuple[List[str], List[List[str]]]:
+    """
+    Analyzes files to find common columns and returns a preview sample.
+    """
+    column_sets = []
+    first_file_cols_ordered = []
+    preview_sample = []
+
+    for i, (buffer, filename) in enumerate(files):
+        is_csv = filename.lower().endswith(".csv")
+        
+        try:
+            if is_csv:
+                try:
+                    if hasattr(buffer, 'seek'): buffer.seek(0)
+                    df = pd.read_csv(buffer, nrows=5, dtype=str, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    if hasattr(buffer, 'seek'): buffer.seek(0)
+                    df = pd.read_csv(buffer, nrows=5, dtype=str, encoding='latin1')
+            else:
+                xls = pd.ExcelFile(buffer)
+                sheet = xls.sheet_names[0]
+                df = pd.read_excel(xls, sheet_name=sheet, nrows=5, dtype=str)
+        except Exception as e:
+            logger.error(f"Error previewing {filename}: {e}")
+            continue
+
+        cols = [str(c).strip() for c in df.columns]
+        
+        if i == 0:
+            first_file_cols_ordered = cols
+            # Add headers and few rows for sample
+            preview_sample.append(cols)
+            preview_sample.extend(df.values.tolist())
+
+        target_set = {c.lower() for c in cols} if case_insensitive else set(cols)
+        column_sets.append(target_set)
+
+    if not column_sets:
+        return [], []
+
+    if strategy == "intersection":
+        shared = set.intersection(*column_sets)
+        common = [c for c in first_file_cols_ordered if (c.lower() if case_insensitive else c) in shared]
+    else:
+        # Union
+        seen = set()
+        common = []
+        for s_list in column_sets:
+            # We want to preserve original casing from the first file we encounter it in
+            for c in s_list:
+                if c not in seen:
+                    common.append(c)
+                    seen.add(c)
+
+    return common, preview_sample

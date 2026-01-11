@@ -81,7 +81,13 @@ def merge_csv(files: list) -> Optional[BytesIO]:
     for file in files:
         try:
             logger.info(f"Processing CSV file: {file.name}")
-            df = pd.read_csv(file)
+            try:
+                if hasattr(file, 'seek'): file.seek(0)
+                df = pd.read_csv(file, encoding='utf-8-sig')
+            except UnicodeDecodeError:
+                if hasattr(file, 'seek'): file.seek(0)
+                df = pd.read_csv(file, encoding='latin1')
+            
             if df.empty:
                 logger.debug(f"Skipping empty CSV: {file.name}")
                 continue
