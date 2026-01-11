@@ -12,18 +12,6 @@ from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_
 from tools.list_tools import convert_column_advanced, convert_dates_text, column_stats
 from tools.file_merger import merge_files_advanced
 from tools.zip_handler import is_zip, process_zip_file
-from tools.sql_transformer import SQLUpdateTransformer
-
-sql_transformer = SQLUpdateTransformer()
-
-class SQLValidateRequest(BaseModel):
-    query: str
-
-class SQLGenerateRequest(BaseModel):
-    reference_query: str
-    set_values: List[str]
-    where_values: List[str]
-    mode: str = "pairwise"
 
 # =====================
 # LOGGING SETUP
@@ -506,33 +494,3 @@ async def merge_advanced_api(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-# =====================
-# SQL TRANSFORMER
-# =====================
-
-@app.post("/api/sql/validate-update")
-async def validate_sql_update(req: SQLValidateRequest):
-    result = sql_transformer.validate_query(req.query)
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return result
-
-@app.post("/api/sql/generate-updates")
-async def generate_sql_updates(req: SQLGenerateRequest):
-    try:
-        queries = sql_transformer.generate_batch(
-            req.reference_query, 
-            req.set_values, 
-            req.where_values, 
-            req.mode
-        )
-        if not queries:
-            raise HTTPException(status_code=400, detail="Failed to generate queries. Check reference query structure.")
-        
-        return {
-            "success": True,
-            "queries": queries,
-            "count": len(queries)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

@@ -4,11 +4,10 @@ import FileMerger from "./pages/FileMerger";
 import DateTimeConverter from "./pages/DateTimeConverter";
 import ActivityLog from "./components/ActivityLog";
 import type { LogEntry } from "./components/ActivityLog";
-import UpdateTransformer from "./pages/UpdateTransformer";
 import { useState } from "react";
 
 export default function App() {
-  const [page, setPage] = useState<"convert" | "file" | "merge" | "datetime" | "sql">("convert");
+  const [page, setPage] = useState<"convert" | "file" | "merge" | "datetime">("convert");
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const addLog = (action: string, filename: string, blob: Blob) => {
@@ -53,12 +52,6 @@ export default function App() {
         >
           🔗 Advanced File Merger
         </button>
-        <button
-          className={page === "sql" ? "active" : ""}
-          onClick={() => setPage("sql")}
-        >
-          🛡️ SQL Update Transformer
-        </button>
       </div>
 
       <div className="main-content">
@@ -66,7 +59,6 @@ export default function App() {
         {page === "datetime" && <DateTimeConverter onLogAction={addLog} />}
         {page === "file" && <FileModify onLogAction={addLog} />}
         {page === "merge" && <FileMerger onLogAction={addLog} />}
-        {page === "sql" && <UpdateTransformer onLogAction={addLog} />}
       </div>
 
       <div className="app glass-card" style={{ marginTop: 48 }}>
