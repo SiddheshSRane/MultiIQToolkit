@@ -82,9 +82,9 @@ export default function UpdateTransformer({ onLogAction }: UpdateTransformerProp
         const blob = new Blob([content], { type: "text/plain" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "batch_updates.sql";
+        link.download = "batch_updates.txt";
         link.click();
-        if (onLogAction) onLogAction("SQL Export", "batch_updates.sql", blob);
+        if (onLogAction) onLogAction("SQL Export", "batch_updates.txt", blob);
     };
 
     return (
@@ -202,7 +202,7 @@ export default function UpdateTransformer({ onLogAction }: UpdateTransformerProp
                             <span>📋</span> Copy All
                         </button>
                         <button className="primary" onClick={handleDownload}>
-                            <span>🚀</span> Download .sql
+                            <span>🚀</span> Download .txt
                         </button>
                     </div>
                 </div>
