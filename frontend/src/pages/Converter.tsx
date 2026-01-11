@@ -101,7 +101,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+      <div className="flex-responsive" style={{ marginBottom: 12 }}>
         <h4 style={{ margin: 0 }}>
           <span>📥</span> Input Values
         </h4>
@@ -225,7 +225,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
         </div>
       </div>
 
-      <div className="section" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="section flex-responsive">
         <h4 style={{ margin: 0 }}>
           <span>🚀</span> Ready to convert?
         </h4>

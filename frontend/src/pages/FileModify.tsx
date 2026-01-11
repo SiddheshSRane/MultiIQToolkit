@@ -307,7 +307,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
               </>
             ) : mode === "rename" ? (
               <>
-                <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="flex-responsive" style={{ marginBottom: 16 }}>
                   <p className="desc" style={{ margin: 0 }}>
                     Enter new names for the columns you wish to rename. Others will remain unchanged.
                   </p>
@@ -332,7 +332,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
               </>
             ) : (
               <>
-                <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="flex-responsive" style={{ marginBottom: 16 }}>
                   <p className="desc" style={{ margin: 0 }}>Select columns to check for blanks:</p>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelected([...columns])}>All</button>
@@ -366,7 +366,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       )}
 
       {/* ================= ACTION ================= */}
-      <div className="section" style={{ display: "flex", gap: "16px", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="section flex-responsive">
         <h4 style={{ margin: 0 }}>
           <span>🚀</span> Ready?
         </h4>

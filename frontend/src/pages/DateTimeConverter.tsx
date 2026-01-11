@@ -225,7 +225,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
     return (
         <div className="app glass-card">
-            <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <h2 className="flex-responsive" style={{ gap: "12px" }}>
                 <span>📅</span> DateTime Converter
             </h2>
             <div className="mode-group" style={{ marginBottom: 24 }}>
@@ -371,7 +371,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 </div>
             </div>
 
-            <div className="section" style={{ display: "flex", gap: "16px", alignItems: "center", justifyContent: "space-between" }}>
+            <div className="section flex-responsive">
                 <h4 style={{ margin: 0 }}>
                     <span>🚀</span> Ready to process?
                 </h4>

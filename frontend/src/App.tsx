@@ -23,7 +23,7 @@ export default function App() {
 
   return (
     <div className="layout-root">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div className="flex-responsive" style={{ marginBottom: 24 }}>
         <h2 style={{ margin: 0 }}>💎 DataRefinery UAT</h2>
       </div>
 

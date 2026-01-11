@@ -162,7 +162,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
     return (
         <div className="app glass-card">
-            <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <h2 className="flex-responsive" style={{ gap: "12px" }}>
                 <span>🔗</span> Advanced File Merger
             </h2>
             <p className="desc">
@@ -293,7 +293,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                         {loading ? <p className="desc">Computing columns...</p> : (
                             <>
                                 <div style={{ marginBottom: 20 }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                    <div className="flex-responsive" style={{ marginBottom: 12 }}>
                                         <p className="desc" style={{ marginBottom: 0 }}>Select columns to include in the output:</p>
                                         <div style={{ display: "flex", gap: "12px" }}>
                                             <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelectedCols(commonColumns)}>Select All</button>
@@ -338,7 +338,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                     </div>
 
                     {/* ================= ACTION ================= */}
-                    <div className="section" style={{ display: "flex", gap: "16px", alignItems: "center", justifyContent: "space-between" }}>
+                    <div className="section flex-responsive">
                         <h4 style={{ margin: 0 }}>
                             <span>🚀</span> Ready to merge?
                         </h4>

@@ -35,21 +35,18 @@ export default function ActivityLog({ logs, onClear }: ActivityLogProps) {
 
     return (
         <div className="activity-log">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div className="flex-responsive" style={{ marginBottom: 16 }}>
                 <h4 style={{ margin: 0 }}>Session Activity</h4>
-                <button className="text-btn" style={{ fontSize: "12px" }} onClick={onClear}>Clear History</button>
+                <button className="text-btn" style={{ fontSize: "12px", background: "transparent", color: "var(--primary)", border: "none", cursor: "pointer" }} onClick={onClear}>Clear History</button>
             </div>
             <div className="log-list" style={{ maxHeight: "400px", overflowY: "auto" }}>
                 {logs.map((log) => (
-                    <div key={log.id} className="log-item" style={{
+                    <div key={log.id} className="log-item flex-responsive" style={{
                         padding: "12px",
                         background: "var(--card-bg)",
                         border: "1px solid var(--border-color)",
                         borderRadius: "8px",
-                        marginBottom: "8px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center"
+                        marginBottom: "8px"
                     }}>
                         <div>
                             <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-main)" }}>{log.action}</div>
