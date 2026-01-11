@@ -5,6 +5,7 @@ Provides utilities for converting between different data formats.
 
 import logging
 import re
+import pandas as pd
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -200,3 +201,45 @@ def column_stats(text: str) -> dict:
     except Exception as e:
         logger.error(f"Error in column_stats: {str(e)}")
         return {}
+
+
+def convert_dates_text(text: str, target_format: str) -> str:
+    """
+    Converts a newline-separated list of date strings to the target format.
+    Invalid dates are preserved as-is. Includes line-by-line fallback for mixed formats.
+    """
+    logger.info(f"convert_dates_text: input_length={len(text)}, format={target_format}")
+    try:
+        if not text:
+            return ""
+
+        lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        results = []
+
+        # Target format normalization
+        fmt = target_format
+        if fmt == "ISO 8601":
+            fmt = "%Y-%m-%dT%H:%M:%S"
+
+        for line in lines:
+            if not line.strip():
+                results.append("")
+                continue
+            
+            try:
+                # Try parsing with format='mixed' for high coverage
+                dt = pd.to_datetime(line, errors="coerce", format="mixed", dayfirst=True)
+                
+                if pd.notna(dt):
+                    results.append(dt.strftime(fmt))
+                else:
+                    results.append(line)  # Preserve invalid as-is
+            except Exception:
+                results.append(line)
+
+        logger.info(f"convert_dates_text: processed {len(lines)} lines")
+        return "\n".join(results)
+
+    except Exception as e:
+        logger.error(f"Error in convert_dates_text: {str(e)}", exc_info=True)
+        return text 

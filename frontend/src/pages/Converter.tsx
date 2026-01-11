@@ -77,14 +77,35 @@ export default function Converter({ onLogAction }: ConverterProps) {
   }, [input, delimiter, itemPrefix, itemSuffix, dedupe, sort, reverse, ignoreComments, stripQuotes, trimItems, caseTransform]);
 
   return (
-    <div>
+    <div className="app glass-card">
+      <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <span>📝</span> Text Transformer
+      </h2>
       <p className="desc">
-        Clean, fast column & text transformation. Paste values below.
+        CLEAN, FAST COLUMN & TEXT TRANSFORMATION. PASTE VALUES BELOW.
       </p>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <h4 style={{ margin: 0 }}>Input</h4>
-        <button className="text-btn" onClick={clearAll}>Clear All</button>
+      {/* --- PRESETS --- */}
+      <div className="section" style={{ marginBottom: 32 }}>
+        <h4><span>✨</span> Quick Presets</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
+          <button className="secondary" onClick={() => {
+            setDelimiter(", "); setItemPrefix(""); setItemSuffix(""); setResultPrefix(""); setResultSuffix("");
+          }}>📊 Comma CSV</button>
+          <button className="secondary" onClick={() => {
+            setDelimiter(", "); setItemPrefix("'"); setItemSuffix("'"); setResultPrefix(""); setResultSuffix("");
+          }}>✨ Quoted CSV</button>
+          <button className="secondary" onClick={() => {
+            setDelimiter("\\n"); setItemPrefix(""); setItemSuffix(""); setResultPrefix(""); setResultSuffix("");
+          }}>📋 Newline List</button>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+        <h4 style={{ margin: 0 }}>
+          <span>📥</span> Input Values
+        </h4>
+        <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
       </div>
 
       <textarea
@@ -93,17 +114,20 @@ export default function Converter({ onLogAction }: ConverterProps) {
         value={input}
         onChange={(e) => setInput(e.target.value)}
       />
+      <p className="desc" style={{ fontSize: "11px", textAlign: "right", marginTop: "8px", opacity: 0.7 }}>
+        ⌨️ Press <b>Ctrl + Enter</b> to convert instantly
+      </p>
 
-      {stats && (
-        <div className="stats" style={{ marginBottom: 20 }}>
-          <strong>Lines:</strong> {stats.total_lines} <span>•</span>{" "}
-          <strong>Non-empty:</strong> {stats.non_empty} <span>•</span>{" "}
-          <strong>Unique:</strong> {stats.unique}
-        </div>
-      )}
+      <div className="stats" style={{ marginBottom: 24, padding: "12px 20px" }}>
+        <strong>Lines:</strong> {stats?.total_lines || 0} <span style={{ opacity: 0.3, margin: "0 8px" }}>|</span>{" "}
+        <strong>Non-empty:</strong> {stats?.non_empty || 0} <span style={{ opacity: 0.3, margin: "0 8px" }}>|</span>{" "}
+        <strong>Unique:</strong> {stats?.unique || 0}
+      </div>
 
       <div className="section">
-        <h4>Formatting</h4>
+        <h4>
+          <span>🛠️</span> Formatting
+        </h4>
         <div className="form-grid">
           <div className="input-group">
             <label>Delimiter</label>
@@ -113,11 +137,15 @@ export default function Converter({ onLogAction }: ConverterProps) {
               value={delimiter}
               onChange={(e) => setDelimiter(e.target.value)}
             />
+            <p className="desc" style={{ fontSize: "11px", marginTop: 4 }}>
+              💡 Use <b>\n</b> for new lines or <b>,</b> for commas.
+            </p>
           </div>
           <div className="input-group">
             <label>Item Prefix</label>
             <input
               type="text"
+              placeholder="e.g. '"
               value={itemPrefix}
               onChange={(e) => setItemPrefix(e.target.value)}
             />
@@ -126,6 +154,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
             <label>Item Suffix</label>
             <input
               type="text"
+              placeholder="e.g. '"
               value={itemSuffix}
               onChange={(e) => setItemSuffix(e.target.value)}
             />
@@ -134,6 +163,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
             <label>Result Prefix</label>
             <input
               type="text"
+              placeholder="e.g. ["
               value={resultPrefix}
               onChange={(e) => setResultPrefix(e.target.value)}
             />
@@ -142,6 +172,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
             <label>Result Suffix</label>
             <input
               type="text"
+              placeholder="e.g. ]"
               value={resultSuffix}
               onChange={(e) => setResultSuffix(e.target.value)}
             />
@@ -150,7 +181,9 @@ export default function Converter({ onLogAction }: ConverterProps) {
       </div>
 
       <div className="section">
-        <h4>Options</h4>
+        <h4>
+          <span>⚙️</span> Options
+        </h4>
         <div className="options-grid">
           <label className="checkbox">
             <input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} />
@@ -176,12 +209,12 @@ export default function Converter({ onLogAction }: ConverterProps) {
             <input type="checkbox" checked={trimItems} onChange={(e) => setTrimItems(e.target.checked)} />
             Trim whitespace
           </label>
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <span style={{ fontSize: "14px", fontWeight: 500 }}>Casing:</span>
+          <div className="input-group">
+            <label>Casing</label>
             <select
               value={caseTransform}
               onChange={(e) => setCaseTransform(e.target.value)}
-              style={{ padding: "4px 8px", borderRadius: "4px", background: "var(--card-bg)", color: "var(--text-main)", border: "1px solid var(--border-color)" }}
+              style={{ width: "auto", minWidth: "120px" }}
             >
               <option value="none">Original</option>
               <option value="upper">UPPERCASE</option>
@@ -192,61 +225,53 @@ export default function Converter({ onLogAction }: ConverterProps) {
         </div>
       </div>
 
-      <div className="section action">
+      <div className="section" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h4 style={{ margin: 0 }}>
+          <span>🚀</span> Ready to convert?
+        </h4>
         <button onClick={handleConvert} disabled={!input || loading} className="primary">
-          {loading ? "Converting..." : "Convert"}
+          {loading ? (
+            <><span>⌛</span> Converting...</>
+          ) : (
+            <><span>⚡</span> Apply Conversion</>
+          )}
         </button>
       </div>
 
       {output && (
         <div className="section">
-          <h4>Result</h4>
+          <h4>
+            <span>✨</span> Converted Results
+          </h4>
           <textarea
             rows={8}
             readOnly
             value={output}
             placeholder="Result"
+            style={{ marginBottom: 20 }}
           />
 
-          <div className="inline" style={{ marginTop: 16, gap: 12 }}>
+          <div className="inline">
             <button className="secondary" onClick={() => navigator.clipboard.writeText(output)}>
-              Copy Result
+              <span>📋</span> Copy Result
             </button>
-            <button
-              className="secondary"
-              onClick={() => {
-                const blob = new Blob([output], { type: "text/plain" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = "conversion.txt";
-                link.click();
-                if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
-              }}
-            >
-              Download .txt
+            <button className="secondary" onClick={() => {
+              const blob = new Blob([output], { type: "text/plain" });
+              const link = document.createElement("a");
+              link.href = URL.createObjectURL(blob);
+              link.download = "conversion.txt";
+              link.click();
+              if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
+            }}>
+              <span>📄</span> .txt
             </button>
-            <button
-              className="secondary"
-              onClick={() => {
-                const blob = new Blob([output], { type: "text/csv" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = "conversion.csv";
-                link.click();
-                if (onLogAction) onLogAction("Download CSV", "conversion.csv", blob);
-              }}
-            >
-              Download .csv
-            </button>
-            <button
-              className="primary"
-              onClick={async () => {
-                const blob = await exportXlsx(getPayload());
-                if (onLogAction && blob) onLogAction("Download XLSX", "conversion.xlsx", blob);
-              }}
+            <button className="primary" onClick={async () => {
+              const blob = await exportXlsx(getPayload());
+              if (onLogAction && blob) onLogAction("Download XLSX", "conversion.xlsx", blob);
+            }}
               style={{ marginLeft: "auto" }}
             >
-              Download .xlsx
+              <span>🚀</span> Download .xlsx
             </button>
           </div>
         </div>

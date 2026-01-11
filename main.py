@@ -8,8 +8,8 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 import io
 import pandas as pd
-from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_values
-from tools.list_tools import convert_column_advanced
+from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_values, convert_datetime_column
+from tools.list_tools import convert_column_advanced, convert_dates_text, column_stats
 from tools.file_merger import merge_files_advanced
 from tools.zip_handler import is_zip, process_zip_file
 
@@ -21,10 +21,10 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("MiniIQ")
+logger = logging.getLogger("DataRefinery")
 
 app = FastAPI(
-    title="MiniIQ API",
+    title="DataRefinery API",
     version="1.0.0",
 )
 
@@ -228,6 +228,43 @@ def export_xlsx(payload: ConvertRequest):
     )
 
 # =====================
+# DATETIME CONVERTER (PASTE MODE)
+# =====================
+
+class DateTimeConvertRequest(BaseModel):
+    text: str
+    target_format: str
+
+@app.post("/convert/datetime")
+def convert_datetime_text_api(payload: DateTimeConvertRequest):
+    result = convert_dates_text(payload.text, payload.target_format)
+    stats = column_stats(payload.text)
+    return {
+        "result": result,
+        "stats": stats
+    }
+
+@app.post("/convert/datetime/export-xlsx")
+def export_datetime_xlsx(payload: DateTimeConvertRequest):
+    result = convert_dates_text(payload.text, payload.target_format)
+    items = result.splitlines()
+    df = pd.DataFrame({"Converted DateTime": items})
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="ConvertedDates")
+    
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="dates_conversion.xlsx"'
+        }
+    )
+
+
+# =====================
 # FILE PREVIEW
 # =====================
 
@@ -280,7 +317,7 @@ async def remove_columns_api(
     return await unified_file_handler(
         file,
         remove_columns,
-        {"columns": columns_list, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
+        {"columns_to_remove": columns_list, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
         "Remove",
         "_cleaned"
     )
@@ -301,7 +338,7 @@ async def rename_columns_api(
     return await unified_file_handler(
         file,
         bulk_rename_columns,
-        {"mapping": rename_map, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
+        {"rename_map": rename_map, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
         "Rename",
         "_renamed"
     )
@@ -318,9 +355,32 @@ async def replace_blanks_api(
     return await unified_file_handler(
         file,
         replace_blank_values,
-        {"replacement": replacement, "sheet_name": sheet_name, "apply_all_sheets": all_sheets, "target_columns": columns_list},
+        {"replace_value": replacement, "sheet_name": sheet_name, "apply_all_sheets": all_sheets, "target_columns": columns_list},
         "Replace",
         "_modified"
+    )
+
+
+@app.post("/file/convert-datetime")
+async def convert_datetime_api(
+    file: UploadFile = File(...),
+    column: str = Form(...),
+    target_format: str = Form(...),
+    sheet_name: str = Form(None),
+    all_sheets: bool = Form(False),
+):
+    columns_list = [c.strip() for c in column.split(",") if c.strip()]
+    return await unified_file_handler(
+        file,
+        convert_datetime_column,
+        {
+            "column_names": columns_list,
+            "target_format": target_format,
+            "sheet_name": sheet_name,
+            "apply_all_sheets": all_sheets
+        },
+        "ConvertDateTime",
+        "_formatted"
     )
 
 
@@ -369,6 +429,8 @@ async def merge_advanced_api(
     trim_whitespace: bool = Form(False),
     casing: str = Form("none"),
     include_source_col: bool = Form(True),
+    join_mode: str = Form("stack"),
+    join_key: str = Form(None),
 ):
     try:
         file_data = await flatten_files(files)
@@ -386,7 +448,9 @@ async def merge_advanced_api(
             selected_columns=columns_list,
             trim_whitespace=trim_whitespace,
             casing=casing,
-            include_source_col=include_source_col
+            include_source_col=include_source_col,
+            join_mode=join_mode,
+            join_key=join_key
         )
 
         if output is None:
@@ -399,3 +463,7 @@ async def merge_advanced_api(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

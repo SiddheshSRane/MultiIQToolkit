@@ -44,8 +44,8 @@ ALLOWED_CSV_TYPES = ["csv"]
 # ===========================================================
 # UI CONFIGURATION
 # ===========================================================
-PAGE_TITLE = "📦 MiniIQ Toolkit"
-PAGE_ICON = "📦"
+PAGE_TITLE = "💎 DataRefinery"
+PAGE_ICON = "💎"
 LAYOUT = "wide"
 INITIAL_SIDEBAR_STATE = "collapsed"
 

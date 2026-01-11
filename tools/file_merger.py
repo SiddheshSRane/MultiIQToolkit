@@ -14,11 +14,12 @@ def merge_files_advanced(
     selected_columns: Optional[List[str]] = None,
     trim_whitespace: bool = False,
     casing: str = "none",  # "none", "upper", "lower"
-    include_source_col: bool = True
+    include_source_col: bool = True,
+    join_mode: str = "stack", # "stack", "inner", "left", "right", "outer"
+    join_key: Optional[str] = None
 ) -> Tuple[Optional[BytesIO], Optional[List[str]], str]:
     """
-    Advanced file merger with support for strategies, case-sensitivity, deduplication,
-    column selection, and data cleaning.
+    Advanced file merger with support for stacking (vertical) and joining (horizontal).
     """
     if not files:
         return None, None, "No files provided."
@@ -31,7 +32,8 @@ def merge_files_advanced(
             
             # Read logic
             if is_csv:
-                df_list = [pd.read_csv(buffer, dtype=str)]
+                df_read = pd.read_csv(buffer, dtype=str)
+                df_list = [df_read]
             else:
                 xls = pd.ExcelFile(buffer)
                 sheets_to_read = xls.sheet_names if all_sheets else [xls.sheet_names[0]]
@@ -43,8 +45,8 @@ def merge_files_advanced(
                 # Clean column names
                 df.columns = [str(c).strip() for c in df.columns]
                 
-                # Source tracking
-                if include_source_col:
+                # Source tracking (only for stack)
+                if include_source_col and join_mode == "stack":
                     df = df.copy()
                     df["Source_File"] = filename
                 
@@ -66,73 +68,92 @@ def merge_files_advanced(
         if not dfs:
             return None, None, "No valid data found."
 
-        # Column Logic
-        if case_insensitive:
-            column_sets = [set(c.lower() for c in df.columns if c != "Source_File") for df in dfs]
-        else:
-            column_sets = [set(c for c in df.columns if c != "Source_File") for df in dfs]
-
-        if strategy == "intersection":
-            shared = set.intersection(*column_sets)
-            if not shared:
-                return None, None, "No common columns found."
-            
-            # Resolve to original casing from first file for shared columns
-            master_cols = []
-            first_df_cols = [c for c in dfs[0].columns if c != "Source_File"]
-            
+        if join_mode == "stack":
+            # --- VERTICAL STACKING LOGIC ---
             if case_insensitive:
-                for c in first_df_cols:
-                    if c.lower() in shared:
-                        master_cols.append(c)
+                column_sets = [set(c.lower() for c in df.columns if c != "Source_File") for df in dfs]
             else:
-                master_cols = [c for c in first_df_cols if c in shared]
-        else:
-            # Union strategy
-            seen = set()
-            master_cols = []
+                column_sets = [set(c for c in df.columns if c != "Source_File") for df in dfs]
+
+            if strategy == "intersection":
+                shared = set.intersection(*column_sets)
+                if not shared:
+                    return None, None, "No common columns found."
+                
+                master_cols = []
+                first_df_cols = [c for c in dfs[0].columns if c != "Source_File"]
+                if case_insensitive:
+                    for c in first_df_cols:
+                        if c.lower() in shared: master_cols.append(c)
+                else:
+                    master_cols = [c for c in first_df_cols if c in shared]
+            else:
+                seen = set()
+                master_cols = []
+                for df in dfs:
+                    for c in df.columns:
+                        if c == "Source_File": continue
+                        match_val = c.lower() if case_insensitive else c
+                        if match_val not in seen:
+                            master_cols.append(c)
+                            seen.add(match_val)
+
+            if selected_columns:
+                if case_insensitive:
+                    sel_lower = [c.lower() for c in selected_columns]
+                    master_cols = [c for c in master_cols if c.lower() in sel_lower]
+                else:
+                    master_cols = [c for c in master_cols if c in selected_columns]
+
+            final_dfs = []
             for df in dfs:
-                for c in df.columns:
-                    if c == "Source_File": continue
-                    match_val = c.lower() if case_insensitive else c
-                    if match_val not in seen:
-                        master_cols.append(c)
-                        seen.add(match_val)
+                if case_insensitive:
+                    rename_map = {}
+                    for c in df.columns:
+                        if c == "Source_File": continue
+                        for m in master_cols:
+                            if c.lower() == m.lower():
+                                rename_map[c] = m
+                                break
+                    df = df.rename(columns=rename_map)
+                
+                cols_to_keep = [c for c in master_cols if c in df.columns]
+                if include_source_col: cols_to_keep.append("Source_File")
+                final_dfs.append(df[cols_to_keep])
 
-        # Apply column selection if provided
-        if selected_columns:
-            if case_insensitive:
-                sel_lower = [c.lower() for c in selected_columns]
-                master_cols = [c for c in master_cols if c.lower() in sel_lower]
-            else:
-                master_cols = [c for c in master_cols if c in selected_columns]
-
-        # Final Alignment
-        final_dfs = []
-        for df in dfs:
-            rename_map = {}
-            if case_insensitive:
-                # Rename df columns to match master_cols casing
-                for c in df.columns:
-                    if c == "Source_File": continue
-                    for m in master_cols:
-                        if c.lower() == m.lower():
-                            rename_map[c] = m
-                            break
-                df = df.rename(columns=rename_map)
-            
-            # Filter to master_cols (+ Source_File if needed)
-            cols_to_keep = [c for c in master_cols if c in df.columns]
-            if include_source_col:
-                cols_to_keep.append("Source_File")
-            
-            final_dfs.append(df[cols_to_keep])
-
-        merged_df = pd.concat(final_dfs, ignore_index=True)
+            merged_df = pd.concat(final_dfs, ignore_index=True)
+            if remove_duplicates:
+                cols_to_check = [c for c in merged_df.columns if c != "Source_File"]
+                merged_df = merged_df.drop_duplicates(subset=cols_to_check)
         
-        if remove_duplicates:
-            cols_to_check = [c for c in merged_df.columns if c != "Source_File"]
-            merged_df = merged_df.drop_duplicates(subset=cols_to_check)
+        else:
+            # --- HORIZONTAL JOIN LOGIC ---
+            if not join_key:
+                return None, None, "Join key is required for horizontal merge."
+            
+            # Find the actual key name in each DF (handle case-insensitive match)
+            processed_dfs = []
+            for i, df in enumerate(dfs):
+                actual_key = next((c for c in df.columns if c.lower() == join_key.lower()), None)
+                if not actual_key:
+                    return None, None, f"Key '{join_key}' not found in file {i+1}."
+                
+                # Standardize key name
+                if actual_key != join_key:
+                    df = df.rename(columns={actual_key: join_key})
+                
+                processed_dfs.append(df)
+
+            from functools import reduce
+            # Perform sequential merge
+            merged_df = reduce(lambda left, right: pd.merge(
+                left, right, on=join_key, how=join_mode, suffixes=("", f"_file{dfs.index(right)+1}")
+            ), processed_dfs)
+
+            if selected_columns:
+                # Always keep the join key
+                cols = [join_key] + [c for c in merged_df.columns if c in selected_columns and c != join_key]
+                merged_df = merged_df[cols]
 
         output = BytesIO()
         any_excel = any(not f[1].lower().endswith(".csv") for f in files)
@@ -146,7 +167,8 @@ def merge_files_advanced(
             extension = ".csv"
 
         output.seek(0)
-        return output, list(merged_df.columns), f"merged_data_{strategy}{extension}"
+        filename = f"merged_data_{join_mode}{extension}"
+        return output, list(merged_df.columns), filename
 
     except Exception as e:
         logger.error(f"merge_files_advanced error: {str(e)}", exc_info=True)

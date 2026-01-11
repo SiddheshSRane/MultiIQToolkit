@@ -5,7 +5,7 @@ type PreviewResponse = {
   sheets: string[] | null;
 };
 
-type Mode = "remove" | "rename" | "replace";
+type Mode = "remove" | "rename" | "replace" | "datetime";
 
 interface FileModifyProps {
   onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -225,14 +225,19 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   };
 
   return (
-    <div>
+    <div className="app glass-card">
+      <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <span>📦</span> Bulk File Editor
+      </h2>
       <p className="desc">
         Bulk modify columns across multiple CSV/Excel files. Upload, configure, and apply.
       </p>
 
       {/* ================= FILE ================= */}
       <div className="section">
-        <h4>1. Upload Files</h4>
+        <h4>
+          <span>📄</span> Select Files
+        </h4>
         <input
           type="file"
           accept=".csv,.xlsx,.xls,.zip"
@@ -240,15 +245,15 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
           onChange={(e) => handleFileChange(e.target.files)}
         />
         {files.length > 0 && (
-          <p className="desc" style={{ marginTop: 8 }}>
-            <b>{files.length}</b> file(s) selected. Preview based on: <i>{files[0].name}</i>
+          <p className="desc" style={{ marginTop: 12, marginBottom: 0 }}>
+            <b>{files.length}</b> file(s) selected. Previewing: <i>{files[0].name}</i>
           </p>
         )}
 
         {sheets && (
-          <div className="options-grid" style={{ marginTop: 12 }}>
+          <div className="form-grid" style={{ marginTop: 20 }}>
             <div className="input-group">
-              <label>Target Sheet</label>
+              <label style={{ display: "block", marginBottom: 8, fontSize: "13px", fontWeight: 600 }}>Target Sheet</label>
               <select
                 disabled={allSheets}
                 value={sheet ?? ""}
@@ -261,7 +266,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
                 {sheets.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <label className="checkbox" style={{ marginTop: 24 }}>
+            <label className="checkbox" style={{ alignSelf: "end" }}>
               <input type="checkbox" checked={allSheets} onChange={(e) => setAllSheets(e.target.checked)} />
               Apply to All Sheets (Excel)
             </label>
@@ -269,12 +274,14 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
         )}
       </div>
 
-      {columns.length > 0 && (
+      {files.length > 0 && columns.length > 0 && (
         <>
           {/* ================= MODE SWITCH ================= */}
           <div className="section">
-            <h4>2. Choose Operation</h4>
-            <div className="mode-group">
+            <h4>
+              <span>🛠️</span> Choose Operation
+            </h4>
+            <div className="mode-group" style={{ marginBottom: 8 }}>
               <button className={mode === "remove" ? "active" : ""} onClick={() => { setMode("remove"); setResults([]); }}>Remove Columns</button>
               <button className={mode === "rename" ? "active" : ""} onClick={() => { setMode("rename"); setResults([]); }}>Rename Columns</button>
               <button className={mode === "replace" ? "active" : ""} onClick={() => { setMode("replace"); setResults([]); }}>Replace Blanks</button>
@@ -283,17 +290,19 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
           {/* ================= COLUMNS UI ================= */}
           <div className="section">
-            <h4>3. Configuration</h4>
+            <h4>
+              <span>⚙️</span> Configuration
+            </h4>
             {mode === "remove" ? (
               <>
-                <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <p className="desc" style={{ margin: 0 }}>Select columns to remove:</p>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button className="text-btn" onClick={() => setSelected([...columns])}>All</button>
-                    <button className="text-btn" onClick={() => setSelected([])}>None</button>
+                    <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelected([...columns])}>All</button>
+                    <button className="secondary" style={{ padding: "6px 12px", fontSize: "12px" }} onClick={() => setSelected([])}>None</button>
                   </div>
                 </div>
-                <div className="checkbox-grid" style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "12px" }}>
+                <div className="checkbox-grid" style={{ maxHeight: "250px", overflowY: "auto", padding: "4px" }}>
                   {columns.map((col) => (
                     <label key={col} className="checkbox">
                       <input type="checkbox" checked={selected.includes(col)} onChange={() => toggleColumn(col)} />
@@ -304,27 +313,32 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
               </>
             ) : mode === "rename" ? (
               <>
-                <p className="desc">Enter new names for any columns you wish to rename:</p>
-                <div className="rename-list" style={{ maxHeight: "300px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "8px" }}>
+                <p className="desc" style={{ marginBottom: 16 }}>
+                  Enter new names for the columns you wish to rename. Others will remain unchanged.
+                </p>
+                <div className="rename-list" style={{ maxHeight: "350px", overflowY: "auto" }}>
                   {columns.map((col) => (
-                    <div key={col} className="rename-row" style={{ padding: "4px 8px" }}>
-                      <span title={col} style={{ fontSize: "13px", color: "var(--text-muted)" }}>{col}</span>
-                      <span style={{ opacity: 0.5 }}>→</span>
-                      <input
-                        type="text"
-                        placeholder="New name"
-                        value={renameMap[col] || ""}
-                        onChange={(e) => handleRenameChange(col, e.target.value)}
-                        style={{ background: "transparent", border: "none", borderBottom: "1px solid var(--border-color)", borderRadius: 0, padding: "2px 4px", color: "var(--text-main)" }}
-                      />
+                    <div key={col} className="rename-row">
+                      <span title={col} style={{ fontWeight: 600 }}>{col}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+                        <span style={{ opacity: 0.3 }}>→</span>
+                        <input
+                          type="text"
+                          placeholder="Enter new name..."
+                          value={renameMap[col] || ""}
+                          onChange={(e) => handleRenameChange(col, e.target.value)}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
               <>
-                <p className="desc">Select target columns and provide a replacement value for blanks:</p>
-                <div className="checkbox-grid" style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "12px", marginBottom: 16 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <p className="desc" style={{ margin: 0 }}>Select columns to check for blanks:</p>
+                </div>
+                <div className="checkbox-grid" style={{ maxHeight: "180px", overflowY: "auto", marginBottom: 20 }}>
                   {columns.map((col) => (
                     <label key={col} className="checkbox">
                       <input type="checkbox" checked={selected.includes(col)} onChange={() => toggleColumn(col)} />
@@ -332,15 +346,17 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
                     </label>
                   ))}
                 </div>
-                <div className="input-group">
-                  <label>Replacement Value</label>
+                <div style={{ maxWidth: 400 }}>
+                  <label style={{ display: "block", marginBottom: 8, fontSize: "13px", fontWeight: 600 }}>Replacement Value</label>
                   <input
                     type="text"
-                    placeholder="e.g. N/A or 0"
+                    placeholder="e.g. N/A, 0, or [Missing]"
                     value={replacementValue}
                     onChange={(e) => setReplacementValue(e.target.value)}
-                    style={{ maxWidth: 300 }}
                   />
+                  <p className="desc" style={{ fontSize: "11px", color: "var(--primary)", marginTop: 8 }}>
+                    💡 Tip: Empty or whitespace-only cells will be replaced.
+                  </p>
                 </div>
               </>
             )}
@@ -349,35 +365,54 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       )}
 
       {/* ================= ACTION ================= */}
-      <div className="section action" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-        <button onClick={handleApply} disabled={loading || files.length === 0} className={results.length > 0 ? "secondary" : "primary"}>
-          {loading ? "Processing..." : `Apply to ${files.length} File(s)`}
-        </button>
-
-        {results.length > 0 && (
-          <button onClick={downloadAll} className="primary" style={{ background: "var(--primary)" }}>
-            Download {results.length} Result(s)
+      <div className="section" style={{ display: "flex", gap: "16px", alignItems: "center", justifyContent: "space-between" }}>
+        <h4 style={{ margin: 0 }}>
+          <span>🚀</span> Ready?
+        </h4>
+        <div style={{ display: "flex", gap: "12px" }}>
+          {results.length > 0 && (
+            <button onClick={downloadAll} className="secondary">
+              <span>📥</span> Download {results.length} File(s)
+            </button>
+          )}
+          <button onClick={handleApply} disabled={loading || files.length === 0} className="primary">
+            {loading ? (
+              <><span>⌛</span> Processing...</>
+            ) : (
+              <><span>⚡</span> Apply to {files.length} File(s)</>
+            )}
           </button>
-        )}
+        </div>
       </div>
 
       {statusMsg && (
-        <div className="section" style={{ marginTop: 24, padding: "16px", background: "var(--card-bg)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-          <h4 style={{ color: "var(--primary)", marginTop: 0 }}>Batch Success</h4>
-          <p style={{ marginBottom: 0 }}>{statusMsg}</p>
+        <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
+          <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
+            <span>✅</span> Success
+          </h4>
+          <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>
         </div>
       )}
 
       {previewData && (
         <div className="section">
-          <h4>Preview (First 5 lines of {results[0]?.filename})</h4>
-          <div style={{ overflowX: "auto", border: "1px solid var(--border-color)", borderRadius: "8px" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+          <h4>
+            <span>🔍</span> Data Preview (Processed Rows)
+          </h4>
+          <div style={{ overflowX: "auto", marginTop: 12 }}>
+            <table>
+              <thead>
+                <tr>
+                  {previewData[0].map((h, i) => (
+                    <th key={i} style={{ padding: "12px", textAlign: "left" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
-                {previewData.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--border-color)", background: i === 0 ? "var(--input-bg)" : "transparent" }}>
+                {previewData.slice(1).map((row, i) => (
+                  <tr key={i}>
                     {row.map((cell, j) => (
-                      <td key={j} style={{ padding: "8px", borderRight: "1px solid var(--border-color)" }}>{cell}</td>
+                      <td key={j} style={{ padding: "12px" }}>{cell}</td>
                     ))}
                   </tr>
                 ))}

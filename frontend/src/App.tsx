@@ -1,12 +1,13 @@
 import Converter from "./pages/Converter";
 import FileModify from "./pages/FileModify";
 import FileMerger from "./pages/FileMerger";
+import DateTimeConverter from "./pages/DateTimeConverter";
 import ActivityLog from "./components/ActivityLog";
 import type { LogEntry } from "./components/ActivityLog";
 import { useState } from "react";
 
 export default function App() {
-  const [page, setPage] = useState<"convert" | "file" | "merge">("convert");
+  const [page, setPage] = useState<"convert" | "file" | "merge" | "datetime">("convert");
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const addLog = (action: string, filename: string, blob: Blob) => {
@@ -21,9 +22,9 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className="layout-root">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>MiniIQ Toolkit</h2>
+        <h2 style={{ margin: 0 }}>💎 DataRefinery</h2>
       </div>
 
       <div className="nav-tabs">
@@ -31,29 +32,36 @@ export default function App() {
           className={page === "convert" ? "active" : ""}
           onClick={() => setPage("convert")}
         >
-          Text Transformer
+          📝 Text Transformer
+        </button>
+        <button
+          className={page === "datetime" ? "active" : ""}
+          onClick={() => setPage("datetime")}
+        >
+          📅 DateTime Converter
         </button>
         <button
           className={page === "file" ? "active" : ""}
           onClick={() => setPage("file")}
         >
-          Bulk File Editor
+          📦 Bulk File Editor
         </button>
         <button
           className={page === "merge" ? "active" : ""}
           onClick={() => setPage("merge")}
         >
-          Advanced File Merger
+          🔗 Advanced File Merger
         </button>
       </div>
 
       <div className="main-content">
         {page === "convert" && <Converter onLogAction={addLog} />}
+        {page === "datetime" && <DateTimeConverter onLogAction={addLog} />}
         {page === "file" && <FileModify onLogAction={addLog} />}
         {page === "merge" && <FileMerger onLogAction={addLog} />}
       </div>
 
-      <div className="section" style={{ marginTop: 40, borderTop: "2px solid var(--border-color)", paddingTop: 32 }}>
+      <div className="app glass-card" style={{ marginTop: 48 }}>
         <ActivityLog logs={logs} onClear={() => setLogs([])} />
       </div>
     </div>

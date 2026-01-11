@@ -183,4 +183,85 @@ def replace_blank_values(
     except Exception as e:
         logger.error(f"replace_blank_values error: {str(e)}", exc_info=True)
         return None, str(e)
+
+
+# ==========================================================
+# TOOL 4: DATETIME CONVERTER
+# ==========================================================
+
+def convert_datetime_column(
+    file,
+    column_names: list,
+    target_format: str,
+    sheet_name: Optional[str] = None,
+    apply_all_sheets: bool = False,
+    is_csv: bool = False
+) -> Tuple[Optional[BytesIO], str]:
+    """
+    Converts multiple date/time columns to a user-selected format.
+    Uses errors='coerce' to preserve unparseable values as NaT, 
+    but we then fill NaT back with original strings to satisfy 'Preserve invalid values'.
+    """
+    if not column_names:
+        return None, "No columns selected."
+    if not target_format:
+        return None, "No target format selected."
+
+    try:
+        output = BytesIO()
+        original_name = _safe_filename(file)
+
+        def _convert(df: pd.DataFrame) -> pd.DataFrame:
+            for col in column_names:
+                if col not in df.columns:
+                    continue
+                
+                # Ensure the column is string for processing
+                col_data = df[col].astype(str)
+                
+                # Record original values to restore them if coersion fails
+                original_values = col_data.copy()
+                
+                # Convert to datetime safely with mixed format support
+                def _parse_cell(val):
+                    if pd.isna(val) or str(val).strip() == "":
+                        return pd.NaT
+                    try:
+                        return pd.to_datetime(val, errors="coerce", format="mixed", dayfirst=True)
+                    except:
+                        return pd.NaT
+
+                dt_series = col_data.apply(_parse_cell)
+                
+                # Format the valid dates
+                fmt = target_format
+                if fmt == "ISO 8601":
+                    fmt = "%Y-%m-%dT%H:%M:%S"
+                
+                formatted_series = dt_series.dt.strftime(fmt)
+                
+                # Set unparseable values as empty string
+                df[col] = formatted_series.fillna("")
+            
+            return df
+
+        if is_csv:
+            df = _read_csv(file)
+            df = _convert(df)
+            df.to_csv(output, index=False)
+        else:
+            sheets = _read_excel_sheets(file)
+
+            for name, df in sheets.items():
+                if apply_all_sheets or name == sheet_name:
+                    sheets[name] = _convert(df)
+
+            _write_excel(output, sheets)
+
+        output.seek(0)
+        return output, original_name
+
+    except Exception as e:
+        logger.error(f"convert_datetime_column error: {str(e)}", exc_info=True)
+        return None, str(e)
 # ==========================================================
