@@ -26,7 +26,7 @@ export default function App() {
   return (
     <div className="layout-root">
       <div className="flex-responsive" style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>💎 DataRefinery UAT</h2>
+        <h2 style={{ margin: 0 }}>💎 DataRefinery</h2>
       </div>
 
       <div className="nav-tabs">
