@@ -5,7 +5,6 @@ import {
     File,
     BarChart,
     Settings,
-    Search,
     Rocket,
     Loader2,
     Eye
