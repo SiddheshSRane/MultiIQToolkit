@@ -193,7 +193,14 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                             <tbody>
                                 {templateHeaders
                                     .filter(h => h.toLowerCase().includes(searchTerm.toLowerCase()))
-                                    .filter(h => !showOnlyUnmapped || mapping[h]?.type === "none")
+                                    .filter(h => {
+                                        if (!showOnlyUnmapped) return true;
+                                        const rule = mapping[h];
+                                        if (!rule || rule.type === "none") return true;
+                                        if (rule.type === "column" && !rule.value) return true;
+                                        if (rule.type === "static" && !rule.value) return true;
+                                        return false;
+                                    })
                                     .map((tCol: string) => (
                                         <tr key={tCol} style={{ background: mapping[tCol]?.required && mapping[tCol]?.type === "none" ? "rgba(239, 68, 68, 0.05)" : "transparent" }}>
                                             <td>
