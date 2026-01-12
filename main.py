@@ -13,6 +13,7 @@ from tools.list_tools import convert_column_advanced, convert_dates_text, column
 from tools.file_merger import merge_files_advanced
 from tools.zip_handler import is_zip, process_zip_file
 from tools.json_converter import convert_to_json
+from tools.template_mapper import get_excel_headers, map_template_data, preview_mapped_data
 
 
 # =====================
@@ -545,7 +546,62 @@ async def convert_to_json_api(
         headers={"Content-Disposition": f'attachment; filename="json_export_{int(time.time())}.zip"'}
     )
 
+# =====================
+# TEMPLATE MAPPER
+# =====================
+
+@app.post("/api/file/template-headers")
+async def get_template_headers_api(file: UploadFile = File(...)):
+    contents = await file.read()
+    buffer = io.BytesIO(contents)
+    is_csv = file.filename.lower().endswith(".csv")
+    headers = get_excel_headers(buffer, is_csv=is_csv)
+    return {"headers": headers}
+
+@app.post("/api/file/template-preview")
+async def preview_mapping_api(
+    template_headers: str = Form(...),
+    data_file: UploadFile = File(...),
+    mapping_json: str = Form(...) # JSON string
+):
+    import json
+    t_headers = json.loads(template_headers)
+    mapping = json.loads(mapping_json)
+    
+    contents = await data_file.read()
+    buffer = io.BytesIO(contents)
+    is_csv = data_file.filename.lower().endswith(".csv")
+    
+    preview = preview_mapped_data(t_headers, buffer, is_csv, mapping)
+    return preview
+
+@app.post("/api/file/template-map")
+async def map_template_api(
+    template_headers: str = Form(...),
+    data_file: UploadFile = File(...),
+    mapping_json: str = Form(...)
+):
+    import json
+    t_headers = json.loads(template_headers)
+    mapping = json.loads(mapping_json)
+    
+    contents = await data_file.read()
+    buffer = io.BytesIO(contents)
+    is_csv = data_file.filename.lower().endswith(".csv")
+    
+    output, filename = map_template_data(t_headers, buffer, is_csv, mapping)
+    
+    if output is None:
+        raise HTTPException(status_code=400, detail=filename)
+        
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="mapped_output_{int(time.time())}.xlsx"'}
+    )
+
 if __name__ == "__main__":
+
 
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
