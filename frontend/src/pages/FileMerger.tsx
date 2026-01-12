@@ -1,5 +1,17 @@
 import { useState } from "react";
 import FileUpload from "../components/FileUpload";
+import {
+    Layers,
+    File,
+    Wrench,
+    Settings,
+    Search,
+    Rocket,
+    Download,
+    Loader2,
+    Zap,
+    CheckCircle
+} from "lucide-react";
 
 type SampleData = {
     headers: string[];
@@ -162,8 +174,9 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
     return (
         <div className="app glass-card">
-            <h2 className="flex-responsive" style={{ gap: "12px" }}>
-                <span>🔗</span> Advanced File Merger
+            <h2 className="flex-responsive" style={{ gap: "12px", alignItems: "center" }}>
+                <Layers className="text-primary" />
+                Advanced File Merger
             </h2>
             <p className="desc">
                 Combine multiple CSV or Excel files with vertical stacking or horizontal joins (VLOOKUP style).
@@ -171,7 +184,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
             <div className="section">
                 <h4>
-                    <span>📄</span> Select Files
+                    <File size={18} /> Select Files
                 </h4>
                 <FileUpload
                     files={files}
@@ -184,7 +197,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                     {/* ================= MERGE MODE ================= */}
                     <div className="section">
                         <h4>
-                            <span>🛠️</span> Merge Mode
+                            <Wrench size={18} /> Merge Mode
                         </h4>
                         <div className="mode-group" style={{ marginBottom: 20 }}>
                             <button className={mergeMode === "stack" ? "active" : ""} onClick={() => setMergeMode("stack")}>
@@ -237,7 +250,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                     {/* ================= OPTIONS ================= */}
                     <div className="section">
                         <h4>
-                            <span>⚙️</span> Advanced Options
+                            <Settings size={18} /> Advanced Options
                         </h4>
 
                         <div className="options-grid">
@@ -288,7 +301,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                     {/* ================= PREVIEW ================= */}
                     <div className="section">
                         <h4>
-                            <span>🔍</span> Preview & Column Selection
+                            <Search size={18} /> Preview & Column Selection
                         </h4>
                         {loading ? <p className="desc">Computing columns...</p> : (
                             <>
@@ -340,19 +353,19 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                     {/* ================= ACTION ================= */}
                     <div className="section flex-responsive">
                         <h4 style={{ margin: 0 }}>
-                            <span>🚀</span> Ready to merge?
+                            <Rocket size={18} /> Ready to merge?
                         </h4>
                         <div style={{ display: "flex", gap: "12px" }}>
                             {resultBlob && (
                                 <button onClick={downloadResult} className="secondary">
-                                    <span>📥</span> Download Result
+                                    <Download size={18} /> Download Result
                                 </button>
                             )}
                             <button onClick={handleMerge} disabled={loading || files.length === 0} className="primary">
                                 {loading ? (
-                                    <><span>⌛</span> Merging...</>
+                                    <><Loader2 className="animate-spin" size={18} /> Merging...</>
                                 ) : (
-                                    <><span>⚡</span> Apply Merge</>
+                                    <><Zap size={18} /> Apply Merge</>
                                 )}
                             </button>
                         </div>
@@ -362,8 +375,8 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
             {statusMsg && (
                 <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
-                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
-                        <span>✅</span> Merge Successful
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8, display: "flex", alignItems: "center", gap: "8px" }}>
+                        <CheckCircle size={18} /> Merge Successful
                     </h4>
                     <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>
                 </div>

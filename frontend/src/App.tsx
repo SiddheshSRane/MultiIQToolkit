@@ -5,6 +5,13 @@ import DateTimeConverter from "./pages/DateTimeConverter";
 import ActivityLog from "./components/ActivityLog";
 import type { LogEntry } from "./components/ActivityLog";
 import { useState } from "react";
+import {
+  Gem,
+  FileText,
+  Calendar,
+  Box,
+  Layers
+} from "lucide-react";
 
 export default function App() {
   const [page, setPage] = useState<"convert" | "file" | "merge" | "datetime">("convert");
@@ -24,7 +31,10 @@ export default function App() {
   return (
     <div className="layout-root">
       <div className="flex-responsive" style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>💎 DataRefinery UAT</h2>
+        <h2 style={{ display: "flex", alignItems: "center", gap: "12px", margin: 0 }}>
+          <Gem className="text-primary" size={28} />
+          DataRefinery
+        </h2>
       </div>
 
       <div className="nav-tabs">
@@ -32,25 +42,29 @@ export default function App() {
           className={page === "convert" ? "active" : ""}
           onClick={() => setPage("convert")}
         >
-          📝 Text Transformer
+          <FileText size={18} />
+          Text Transformer
         </button>
         <button
           className={page === "datetime" ? "active" : ""}
           onClick={() => setPage("datetime")}
         >
-          📅 DateTime Converter
+          <Calendar size={18} />
+          DateTime Converter
         </button>
         <button
           className={page === "file" ? "active" : ""}
           onClick={() => setPage("file")}
         >
-          📦 Bulk File Editor
+          <Box size={18} />
+          Bulk File Editor
         </button>
         <button
           className={page === "merge" ? "active" : ""}
           onClick={() => setPage("merge")}
         >
-          🔗 Advanced File Merger
+          <Layers size={18} />
+          Advanced File Merger
         </button>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Upload, File, Archive, X } from "lucide-react";
 
 interface FileUploadProps {
     onFilesSelected: (files: File[]) => void;
@@ -52,7 +53,7 @@ export default function FileUpload({ onFilesSelected, multiple = true, accept = 
                 onClick={() => fileInputRef.current?.click()}
             >
                 <div className="drop-zone-icon">
-                    {isDragging ? "📥" : "📄"}
+                    {isDragging ? <Upload size={40} className="text-primary" /> : <File size={40} className="text-primary" style={{ opacity: 0.5 }} />}
                 </div>
                 <div className="drop-zone-text">
                     <p style={{ margin: "0 0 4px 0", fontWeight: 700, fontSize: "16px" }}>
@@ -82,7 +83,9 @@ export default function FileUpload({ onFilesSelected, multiple = true, accept = 
                     {files.map((f, i) => (
                         <div key={`${f.name}-${i}`} className="file-staged-item">
                             <div className="file-info">
-                                <span style={{ fontSize: "18px" }}>{f.name.endsWith(".zip") ? "📦" : "📄"}</span>
+                                <span style={{ fontSize: "18px", display: "flex", alignItems: "center" }}>
+                                    {f.name.endsWith(".zip") ? <Archive size={18} /> : <File size={18} />}
+                                </span>
                                 <div style={{ display: "flex", flexDirection: "column" }}>
                                     <span style={{ fontWeight: 600 }}>{f.name}</span>
                                     <span className="file-size">{formatSize(f.size)}</span>
@@ -96,7 +99,7 @@ export default function FileUpload({ onFilesSelected, multiple = true, accept = 
                                 }}
                                 title="Remove file"
                             >
-                                ✕
+                                <X size={16} />
                             </button>
                         </div>
                     ))}
