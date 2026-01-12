@@ -504,12 +504,45 @@ async def convert_to_json_api(
     indent: int = Form(4),
     sheet_name: str = Form(None),
 ):
-    return await unified_batch_handler(
-        files,
-        convert_to_json,
-        {"orient": orient, "indent": indent, "sheet_name": sheet_name},
-        "Export",
-        ".json"
+    import zipfile
+    flat_files = await flatten_files(files)
+    
+    if not flat_files:
+        raise HTTPException(status_code=400, detail="No valid files provided.")
+
+    if len(flat_files) == 1:
+        buffer, filename = flat_files[0]
+        is_csv = filename.lower().endswith(".csv")
+        output, ext = convert_to_json(buffer, is_csv=is_csv, sheet_name=sheet_name, orient=orient, indent=indent)
+        
+        if output is None:
+            raise HTTPException(status_code=400, detail=ext)
+            
+        output.seek(0)
+        base_name = os.path.splitext(filename)[0]
+        return StreamingResponse(
+            output,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}.json"'}
+        )
+
+    # Multi-file ZIP
+    zip_output = io.BytesIO()
+    with zipfile.ZipFile(zip_output, 'w', zipfile.ZIP_DEFLATED) as z:
+        for buffer, filename in flat_files:
+            is_csv = filename.lower().endswith(".csv")
+            try:
+                output, _ = convert_to_json(buffer, is_csv=is_csv, sheet_name=sheet_name, orient=orient, indent=indent)
+                if output:
+                    base_name = os.path.splitext(filename)[0]
+                    z.writestr(f"{base_name}.json", output.getvalue())
+            except: continue
+
+    zip_output.seek(0)
+    return StreamingResponse(
+        zip_output,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="json_export_{int(time.time())}.zip"'}
     )
 
 if __name__ == "__main__":
