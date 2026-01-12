@@ -12,6 +12,8 @@ from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_
 from tools.list_tools import convert_column_advanced, convert_dates_text, column_stats
 from tools.file_merger import merge_files_advanced
 from tools.zip_handler import is_zip, process_zip_file
+from tools.json_converter import convert_to_json
+
 
 # =====================
 # LOGGING SETUP
@@ -491,6 +493,26 @@ async def merge_advanced_api(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# =====================
+# JSON CONVERTER
+# =====================
+
+@app.post("/api/file/convert-to-json")
+async def convert_to_json_api(
+    files: List[UploadFile] = File(...),
+    orient: str = Form("records"),
+    indent: int = Form(4),
+    sheet_name: str = Form(None),
+):
+    return await unified_batch_handler(
+        files,
+        convert_to_json,
+        {"orient": orient, "indent": indent, "sheet_name": sheet_name},
+        "Export",
+        ".json"
+    )
+
 if __name__ == "__main__":
+
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
