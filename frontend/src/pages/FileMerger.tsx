@@ -2,7 +2,7 @@ import { useState } from "react";
 import FileUpload from "../components/FileUpload";
 import {
     Layers,
-    File,
+    Files,
     Wrench,
     Settings,
     Search,
@@ -184,7 +184,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
             <div className="section">
                 <h4>
-                    <File size={18} /> Select Files
+                    <Files size={18} /> Select Files
                 </h4>
                 <FileUpload
                     files={files}
@@ -375,7 +375,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
             {statusMsg && (
                 <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
-                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
                         <CheckCircle size={18} /> Merge Successful
                     </h4>
                     <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>

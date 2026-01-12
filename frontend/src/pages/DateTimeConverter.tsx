@@ -3,15 +3,15 @@ import FileUpload from "../components/FileUpload";
 import {
     Calendar,
     Keyboard,
+    Files,
+    Download,
+    BarChart2,
     File,
     Settings,
-    BarChart2,
     Rocket,
     Loader2,
     Zap,
     Clipboard,
-    FileText,
-    FileDown,
     Search,
     CheckCircle,
     Sparkles
@@ -246,8 +246,8 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 DateTime Converter
             </h2>
             <div className="mode-group" style={{ marginBottom: 24 }}>
-                <button className={mode === "paste" ? "active" : ""} onClick={() => setMode("paste")}><Keyboard size={18} style={{ marginRight: 8 }} /> Paste Mode</button>
-                <button className={mode === "file" ? "active" : ""} onClick={() => setMode("file")}><File size={18} style={{ marginRight: 8 }} /> File Mode</button>
+                <button className={mode === "paste" ? "active" : ""} onClick={() => setMode("paste")}><Keyboard size={16} /> Paste Mode</button>
+                <button className={mode === "file" ? "active" : ""} onClick={() => setMode("file")}><Files size={16} /> File Mode</button>
             </div>
 
             {mode === "paste" ? (
@@ -258,7 +258,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
                         <h4 style={{ margin: 0 }}>
-                            <Keyboard size={18} /> Input Dates
+                            <Download size={18} /> Input Dates
                         </h4>
                         <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
                     </div>
@@ -432,10 +432,10 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                             link.click();
                             if (onLogAction) onLogAction("Download Dates TXT", "dates_standardized.txt", blob);
                         }}>
-                            <FileText size={18} /> .txt
+                            <File size={18} /> .txt
                         </button>
                         <button className="primary" onClick={handleDownloadPasteXlsx} style={{ marginLeft: "auto" }}>
-                            <FileDown size={18} /> Download .xlsx
+                            <Rocket size={18} /> Download .xlsx
                         </button>
                     </div>
                 </div>
@@ -471,7 +471,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
             {statusMsg && (
                 <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)", marginTop: 24 }}>
-                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
                         <CheckCircle size={18} /> Success
                     </h4>
                     <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>

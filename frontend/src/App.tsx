@@ -2,6 +2,8 @@ import Converter from "./pages/Converter";
 import FileModify from "./pages/FileModify";
 import FileMerger from "./pages/FileMerger";
 import DateTimeConverter from "./pages/DateTimeConverter";
+import JsonConverter from "./pages/JsonConverter";
+import TemplateMapper from "./pages/TemplateMapper";
 import ActivityLog from "./components/ActivityLog";
 import type { LogEntry } from "./components/ActivityLog";
 import { useState } from "react";
@@ -10,11 +12,13 @@ import {
   FileText,
   Calendar,
   Box,
-  Layers
+  Layers,
+  Braces,
+  LayoutTemplate
 } from "lucide-react";
 
 export default function App() {
-  const [page, setPage] = useState<"convert" | "file" | "merge" | "datetime">("convert");
+  const [page, setPage] = useState<"convert" | "file" | "merge" | "datetime" | "json" | "map">("convert");
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   const addLog = (action: string, filename: string, blob: Blob) => {
@@ -66,6 +70,20 @@ export default function App() {
           <Layers size={18} />
           Advanced File Merger
         </button>
+        <button
+          className={page === "json" ? "active" : ""}
+          onClick={() => setPage("json")}
+        >
+          <Braces size={18} />
+          JSON Converter
+        </button>
+        <button
+          className={page === "map" ? "active" : ""}
+          onClick={() => setPage("map")}
+        >
+          <LayoutTemplate size={18} />
+          Template Mapper
+        </button>
       </div>
 
       <div className="main-content">
@@ -73,6 +91,8 @@ export default function App() {
         {page === "datetime" && <DateTimeConverter onLogAction={addLog} />}
         {page === "file" && <FileModify onLogAction={addLog} />}
         {page === "merge" && <FileMerger onLogAction={addLog} />}
+        {page === "json" && <JsonConverter onLogAction={addLog} />}
+        {page === "map" && <TemplateMapper onLogAction={addLog} />}
       </div>
 
       <div className="app glass-card" style={{ marginTop: 48 }}>

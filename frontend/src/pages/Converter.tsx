@@ -3,12 +3,14 @@ import { convertColumn, exportXlsx } from "../api/client";
 import {
   FileText,
   Sparkles,
+  Download,
+  Wrench,
   Settings,
   Rocket,
-  Zap,
   Loader2,
+  Zap,
   Clipboard,
-  FileDown
+  File
 } from "lucide-react";
 
 interface ConverterProps {
@@ -89,7 +91,8 @@ export default function Converter({ onLogAction }: ConverterProps) {
   return (
     <div className="app glass-card">
       <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <FileText className="text-primary" /> Text Transformer
+        <FileText className="text-primary" />
+        Text Transformer
       </h2>
       <p className="desc">
         CLEAN, FAST COLUMN & TEXT TRANSFORMATION. PASTE VALUES BELOW.
@@ -113,7 +116,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       <div className="flex-responsive" style={{ marginBottom: 12 }}>
         <h4 style={{ margin: 0 }}>
-          <Settings size={18} /> Input Values
+          <Download size={18} /> Input Values
         </h4>
         <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
       </div>
@@ -136,7 +139,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       <div className="section">
         <h4>
-          <Settings size={18} /> Formatting
+          <Wrench size={18} /> Formatting
         </h4>
         <div className="form-grid">
           <div className="input-group">
@@ -273,7 +276,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
               link.click();
               if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
             }}>
-              <FileText size={18} /> .txt
+              <File size={18} /> .txt
             </button>
             <button className="primary" onClick={async () => {
               const blob = await exportXlsx(getPayload());
@@ -281,7 +284,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
             }}
               style={{ marginLeft: "auto" }}
             >
-              <FileDown size={18} /> Download .xlsx
+              <Rocket size={18} /> Download .xlsx
             </button>
           </div>
         </div>

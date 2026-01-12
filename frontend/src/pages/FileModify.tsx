@@ -401,7 +401,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
       {statusMsg && (
         <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
-          <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8, display: "flex", alignItems: "center", gap: "8px" }}>
+          <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
             <CheckCircle size={18} /> Success
           </h4>
           <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>
