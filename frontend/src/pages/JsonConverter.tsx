@@ -1,5 +1,14 @@
 import { useState } from "react";
 import FileUpload from "../components/FileUpload";
+import {
+    Braces,
+    File,
+    Settings,
+    Rocket,
+    Loader2,
+    Zap,
+    CheckCircle
+} from "lucide-react";
 
 interface JsonConverterProps {
     onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -68,14 +77,15 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
     return (
         <div className="app glass-card">
             <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span>💎</span> JSON Converter
+                <Braces className="text-primary" />
+                JSON Converter
             </h2>
             <p className="desc">
                 Convert your Excel or CSV files into structured JSON format. Supports batch conversion and multiple JSON orientations.
             </p>
 
             <div className="section">
-                <h4><span>📄</span> Select Files</h4>
+                <h4><File size={18} /> Select Files</h4>
                 <FileUpload
                     files={files}
                     onFilesSelected={setFiles}
@@ -84,7 +94,7 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
 
             {files.length > 0 && (
                 <div className="section">
-                    <h4><span>⚙️</span> Configuration</h4>
+                    <h4><Settings size={18} /> Configuration</h4>
                     <div className="form-grid">
                         <div className="input-group">
                             <label>JSON Structure (Orient)</label>
@@ -115,15 +125,17 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             )}
 
             <div className="section flex-responsive">
-                <h4 style={{ margin: 0 }}><span>🚀</span> Ready?</h4>
+                <h4 style={{ margin: 0 }}><Rocket size={18} /> Ready?</h4>
                 <button className="primary" onClick={handleApply} disabled={loading || files.length === 0}>
-                    {loading ? "⌛ Processing..." : `⚡ Convert ${files.length} File(s)`}
+                    {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <><Zap size={18} /> Convert ${files.length} File(s)</>}
                 </button>
             </div>
 
             {statusMsg && (
                 <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
-                    <p className="desc" style={{ marginBottom: 0, color: "var(--text-main)" }}>✅ {statusMsg}</p>
+                    <p className="desc" style={{ marginBottom: 0, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <CheckCircle size={18} /> {statusMsg}
+                    </p>
                 </div>
             )}
         </div>

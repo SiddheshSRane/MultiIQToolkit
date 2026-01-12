@@ -1,5 +1,17 @@
 import { useState } from "react";
 import FileUpload from "../components/FileUpload";
+import {
+  Box,
+  File,
+  Wrench,
+  Settings,
+  Rocket,
+  Download,
+  Loader2,
+  Zap,
+  CheckCircle,
+  Search
+} from "lucide-react";
 
 type SampleData = {
   headers: string[];
@@ -228,7 +240,8 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   return (
     <div className="app glass-card">
       <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <span>📦</span> Bulk File Editor
+        <Box className="text-primary" />
+        Bulk File Editor
       </h2>
       <p className="desc">
         Bulk modify columns across multiple CSV/Excel files. Upload, configure, and apply.
@@ -237,7 +250,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       {/* ================= FILE ================= */}
       <div className="section">
         <h4>
-          <span>📄</span> Select Files
+          <File size={18} /> Select Files
         </h4>
         <FileUpload
           files={files}
@@ -273,7 +286,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
           {/* ================= MODE SWITCH ================= */}
           <div className="section">
             <h4>
-              <span>🛠️</span> Choose Operation
+              <Wrench size={18} /> Choose Operation
             </h4>
             <div className="mode-group" style={{ marginBottom: 8 }}>
               <button className={mode === "remove" ? "active" : ""} onClick={() => { setMode("remove"); setResults([]); }}>Remove Columns</button>
@@ -285,7 +298,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
           {/* ================= COLUMNS UI ================= */}
           <div className="section">
             <h4>
-              <span>⚙️</span> Configuration
+              <Settings size={18} /> Configuration
             </h4>
             {mode === "remove" ? (
               <>
@@ -368,19 +381,19 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       {/* ================= ACTION ================= */}
       <div className="section flex-responsive">
         <h4 style={{ margin: 0 }}>
-          <span>🚀</span> Ready?
+          <Rocket size={18} /> Ready?
         </h4>
         <div style={{ display: "flex", gap: "12px" }}>
           {results.length > 0 && (
             <button onClick={downloadAll} className="secondary">
-              <span>📥</span> Download {results.length} File(s)
+              <Download size={18} /> Download {results.length} File(s)
             </button>
           )}
           <button onClick={handleApply} disabled={loading || files.length === 0} className="primary">
             {loading ? (
-              <><span>⌛</span> Processing...</>
+              <><Loader2 className="animate-spin" size={18} /> Processing...</>
             ) : (
-              <><span>⚡</span> Apply to {files.length} File(s)</>
+              <><Zap size={18} /> Apply to {files.length} File(s)</>
             )}
           </button>
         </div>
@@ -389,7 +402,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       {statusMsg && (
         <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
           <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
-            <span>✅</span> Success
+            <CheckCircle size={18} /> Success
           </h4>
           <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>
         </div>
@@ -398,7 +411,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       {sample && (
         <div className="section">
           <h4>
-            <span>🔍</span> Data Preview (Top 5 rows of {files[0]?.name})
+            <Search size={18} /> Data Preview (Top 5 rows of {files[0]?.name})
           </h4>
           <div className="table-container" style={{ marginTop: 12 }}>
             <table style={{ borderCollapse: "collapse" }}>

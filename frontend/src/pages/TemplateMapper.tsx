@@ -1,5 +1,15 @@
 import { useState } from "react";
 import FileUpload from "../components/FileUpload";
+import {
+    ClipboardList,
+    File,
+    BarChart,
+    Settings,
+    Search,
+    Rocket,
+    Loader2,
+    Eye
+} from "lucide-react";
 
 type MappingRule = {
     type: "column" | "static" | "none";
@@ -100,7 +110,8 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     return (
         <div className="app glass-card">
             <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span>📋</span> Template Column Mapper
+                <ClipboardList className="text-primary" />
+                Template Column Mapper
             </h2>
             <p className="desc">
                 Map source data columns to a template schema and generate a perfectly formatted Excel output.
@@ -108,7 +119,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
             <div className="form-grid">
                 <div className="section">
-                    <h4><span>📄</span> 1. Template Schema</h4>
+                    <h4><File size={18} /> 1. Template Schema</h4>
                     <FileUpload
                         files={templateFile ? [templateFile] : []}
                         onFilesSelected={(files) => {
@@ -120,7 +131,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                     />
                 </div>
                 <div className="section">
-                    <h4><span>📊</span> 2. Source Data</h4>
+                    <h4><BarChart size={18} /> 2. Source Data</h4>
                     <FileUpload
                         files={dataFile ? [dataFile] : []}
                         onFilesSelected={(files) => {
@@ -135,7 +146,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
             {templateHeaders.length > 0 && (
                 <div className="section">
-                    <h4><span>⚙️</span> 3. Map Columns</h4>
+                    <h4><Settings size={18} /> 3. Map Columns</h4>
                     <div className="table-container" style={{ marginTop: 20 }}>
                         <table>
                             <thead>
@@ -190,17 +201,17 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
             {templateHeaders.length > 0 && dataFile && (
                 <div className="section" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                     <button className="secondary" onClick={fetchPreview} disabled={loading}>
-                        {loading ? "⌛ Loading..." : "🔍 Preview Mapping"}
+                        {loading ? <><Loader2 className="animate-spin" size={18} /> Loading...</> : <><Search size={18} /> Preview Mapping</>}
                     </button>
                     <button className="primary" onClick={handleDownload} disabled={loading}>
-                        {loading ? "⌛ Processing..." : "🚀 Generate & Download Excel"}
+                        {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <><Rocket size={18} /> Generate & Download Excel</>}
                     </button>
                 </div>
             )}
 
             {preview && (
                 <div className="section">
-                    <h4><span>👀</span> Preview (First 5 Rows)</h4>
+                    <h4><Eye size={18} /> Preview (First 5 Rows)</h4>
                     <div className="table-container">
                         <table>
                             <thead>

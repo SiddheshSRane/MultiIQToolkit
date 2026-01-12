@@ -1,5 +1,21 @@
 import { useState, useEffect } from "react";
 import FileUpload from "../components/FileUpload";
+import {
+    Calendar,
+    Keyboard,
+    Files,
+    Download,
+    BarChart2,
+    File,
+    Settings,
+    Rocket,
+    Loader2,
+    Zap,
+    Clipboard,
+    Search,
+    CheckCircle,
+    Sparkles
+} from "lucide-react";
 
 interface SampleData {
     headers: string[];
@@ -225,12 +241,13 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
     return (
         <div className="app glass-card">
-            <h2 className="flex-responsive" style={{ gap: "12px" }}>
-                <span>📅</span> DateTime Converter
+            <h2 className="flex-responsive" style={{ gap: "12px", alignItems: "center" }}>
+                <Calendar className="text-primary" />
+                DateTime Converter
             </h2>
             <div className="mode-group" style={{ marginBottom: 24 }}>
-                <button className={mode === "paste" ? "active" : ""} onClick={() => setMode("paste")}>⌨️ Paste Mode</button>
-                <button className={mode === "file" ? "active" : ""} onClick={() => setMode("file")}>📁 File Mode</button>
+                <button className={mode === "paste" ? "active" : ""} onClick={() => setMode("paste")}><Keyboard size={16} /> Paste Mode</button>
+                <button className={mode === "file" ? "active" : ""} onClick={() => setMode("file")}><Files size={16} /> File Mode</button>
             </div>
 
             {mode === "paste" ? (
@@ -241,7 +258,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
                         <h4 style={{ margin: 0 }}>
-                            <span>📥</span> Input Dates
+                            <Download size={18} /> Input Dates
                         </h4>
                         <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
                     </div>
@@ -259,7 +276,9 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                     {stats && (
                         <div className="stats" style={{ marginBottom: 24, padding: "12px 20px" }}>
                             <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-                                <span style={{ color: "var(--primary)", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px" }}>📈 Statistics:</span>
+                                <span style={{ color: "var(--primary)", fontWeight: 700, fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <BarChart2 size={14} /> Statistics:
+                                </span>
                                 <span><strong>Total:</strong> {stats.total_lines}</span>
                                 <span style={{ opacity: 0.3 }}>|</span>
                                 <span><strong>Non-empty:</strong> {stats.non_empty}</span>
@@ -277,7 +296,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
                     <div className="section">
                         <h4>
-                            <span>📄</span> Select Files
+                            <File size={18} /> Select Files
                         </h4>
                         <FileUpload
                             files={files}
@@ -288,7 +307,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                     {columns.length > 0 && (
                         <div className="section">
                             <h4>
-                                <span>⚙️</span> Select Date Columns
+                                <Settings size={18} /> Select Date Columns
                             </h4>
                             <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <p className="desc" style={{ margin: 0 }}>Select columns to convert:</p>
@@ -333,7 +352,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
             <div className="section">
                 <h4>
-                    <span>⚙️</span> Target Format
+                    <Settings size={18} /> Target Format
                 </h4>
                 <div className="form-grid">
                     <div className="input-group">
@@ -373,7 +392,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
             <div className="section flex-responsive">
                 <h4 style={{ margin: 0 }}>
-                    <span>🚀</span> Ready to process?
+                    <Rocket size={18} /> Ready to process?
                 </h4>
                 <button
                     onClick={mode === "paste" ? handleConvertPaste : handleConvertFile}
@@ -381,9 +400,9 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                     className="primary"
                 >
                     {loading ? (
-                        <><span>⌛</span> Working...</>
+                        <><Loader2 className="animate-spin" size={18} /> Working...</>
                     ) : (
-                        <><span>⚡</span> {mode === "paste" ? "Standardize Dates" : `Apply to ${files.length} File(s)`}</>
+                        <><Zap size={18} /> {mode === "paste" ? "Standardize Dates" : `Apply to ${files.length} File(s)`}</>
                     )}
                 </button>
             </div>
@@ -391,7 +410,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             {mode === "paste" && output && (
                 <div className="section">
                     <h4>
-                        <span>✨</span> Converted Results
+                        <Sparkles size={18} /> Converted Results
                     </h4>
                     <textarea
                         rows={8}
@@ -403,7 +422,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
                     <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                         <button className="secondary" onClick={() => navigator.clipboard.writeText(output)}>
-                            <span>📋</span> Copy Result
+                            <Clipboard size={18} /> Copy Result
                         </button>
                         <button className="secondary" onClick={() => {
                             const blob = new Blob([output], { type: "text/plain" });
@@ -413,10 +432,10 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                             link.click();
                             if (onLogAction) onLogAction("Download Dates TXT", "dates_standardized.txt", blob);
                         }}>
-                            <span>📄</span> .txt
+                            <File size={18} /> .txt
                         </button>
                         <button className="primary" onClick={handleDownloadPasteXlsx} style={{ marginLeft: "auto" }}>
-                            <span>🚀</span> Download .xlsx
+                            <Rocket size={18} /> Download .xlsx
                         </button>
                     </div>
                 </div>
@@ -425,7 +444,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             {mode === "file" && sample && (
                 <div className="section">
                     <h4>
-                        <span>🔍</span> Data Preview (Top 5 rows of {files[0]?.name})
+                        <Search size={18} /> Data Preview (Top 5 rows of {files[0]?.name})
                     </h4>
                     <div className="table-container" style={{ marginTop: 12 }}>
                         <table style={{ borderCollapse: "collapse" }}>
@@ -453,7 +472,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             {statusMsg && (
                 <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)", marginTop: 24 }}>
                     <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
-                        <span>✅</span> Success
+                        <CheckCircle size={18} /> Success
                     </h4>
                     <p className="desc" style={{ marginBottom: 0 }}>{statusMsg}</p>
                 </div>

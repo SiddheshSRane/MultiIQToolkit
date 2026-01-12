@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
 import { convertColumn, exportXlsx } from "../api/client";
+import {
+  FileText,
+  Sparkles,
+  Download,
+  Wrench,
+  Settings,
+  Rocket,
+  Loader2,
+  Zap,
+  Clipboard,
+  File
+} from "lucide-react";
 
 interface ConverterProps {
   onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -79,7 +91,8 @@ export default function Converter({ onLogAction }: ConverterProps) {
   return (
     <div className="app glass-card">
       <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <span>📝</span> Text Transformer
+        <FileText className="text-primary" />
+        Text Transformer
       </h2>
       <p className="desc">
         CLEAN, FAST COLUMN & TEXT TRANSFORMATION. PASTE VALUES BELOW.
@@ -87,7 +100,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       {/* --- PRESETS --- */}
       <div className="section" style={{ marginBottom: 32 }}>
-        <h4><span>✨</span> Quick Presets</h4>
+        <h4><Sparkles size={18} /> Quick Presets</h4>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
           <button className="secondary" onClick={() => {
             setDelimiter(", "); setItemPrefix(""); setItemSuffix(""); setResultPrefix(""); setResultSuffix("");
@@ -103,7 +116,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       <div className="flex-responsive" style={{ marginBottom: 12 }}>
         <h4 style={{ margin: 0 }}>
-          <span>📥</span> Input Values
+          <Download size={18} /> Input Values
         </h4>
         <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
       </div>
@@ -126,7 +139,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       <div className="section">
         <h4>
-          <span>🛠️</span> Formatting
+          <Wrench size={18} /> Formatting
         </h4>
         <div className="form-grid">
           <div className="input-group">
@@ -182,7 +195,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       <div className="section">
         <h4>
-          <span>⚙️</span> Options
+          <Settings size={18} /> Options
         </h4>
         <div className="options-grid">
           <label className="checkbox">
@@ -227,13 +240,13 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
       <div className="section flex-responsive">
         <h4 style={{ margin: 0 }}>
-          <span>🚀</span> Ready to convert?
+          <Rocket size={18} /> Ready to convert?
         </h4>
         <button onClick={handleConvert} disabled={!input || loading} className="primary">
           {loading ? (
-            <><span>⌛</span> Converting...</>
+            <><Loader2 className="animate-spin" size={18} /> Converting...</>
           ) : (
-            <><span>⚡</span> Apply Conversion</>
+            <><Zap size={18} /> Apply Conversion</>
           )}
         </button>
       </div>
@@ -241,7 +254,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
       {output && (
         <div className="section">
           <h4>
-            <span>✨</span> Converted Results
+            <Sparkles size={18} /> Converted Results
           </h4>
           <textarea
             rows={8}
@@ -253,7 +266,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
           <div className="inline">
             <button className="secondary" onClick={() => navigator.clipboard.writeText(output)}>
-              <span>📋</span> Copy Result
+              <Clipboard size={18} /> Copy Result
             </button>
             <button className="secondary" onClick={() => {
               const blob = new Blob([output], { type: "text/plain" });
@@ -263,7 +276,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
               link.click();
               if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
             }}>
-              <span>📄</span> .txt
+              <File size={18} /> .txt
             </button>
             <button className="primary" onClick={async () => {
               const blob = await exportXlsx(getPayload());
@@ -271,7 +284,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
             }}
               style={{ marginLeft: "auto" }}
             >
-              <span>🚀</span> Download .xlsx
+              <Rocket size={18} /> Download .xlsx
             </button>
           </div>
         </div>
