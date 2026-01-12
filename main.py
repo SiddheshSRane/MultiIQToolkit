@@ -523,8 +523,8 @@ async def convert_to_json_api(
         base_name = os.path.splitext(filename)[0]
         return StreamingResponse(
             output,
-            media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{base_name}.json"'}
+            media_type="text/plain",
+            headers={"Content-Disposition": f'attachment; filename="{base_name}.txt"'}
         )
 
     # Multi-file ZIP
@@ -536,7 +536,7 @@ async def convert_to_json_api(
                 output, _ = convert_to_json(buffer, is_csv=is_csv, sheet_name=sheet_name, orient=orient, indent=indent)
                 if output:
                     base_name = os.path.splitext(filename)[0]
-                    z.writestr(f"{base_name}.json", output.getvalue())
+                    z.writestr(f"{base_name}.txt", output.getvalue())
             except: continue
 
     zip_output.seek(0)

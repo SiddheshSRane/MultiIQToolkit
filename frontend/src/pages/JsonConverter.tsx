@@ -50,7 +50,7 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
 
             const blob = await res.blob();
             const contentDisposition = res.headers.get("content-disposition");
-            let outName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.json`;
+            let outName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.txt`;
 
             if (contentDisposition) {
                 const match = contentDisposition.match(/filename="(.+)"/);
@@ -63,7 +63,7 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             link.download = outName;
             link.click();
 
-            setStatusMsg(`Successfully converted ${files.length} file(s) to JSON.`);
+            setStatusMsg(`Successfully converted ${files.length} file(s) to JSON (.txt).`);
             if (onLogAction) onLogAction("Convert to JSON", outName, blob);
 
         } catch (e) {

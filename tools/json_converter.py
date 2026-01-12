@@ -33,7 +33,7 @@ def convert_to_json(
         output = io.BytesIO(json_str.encode('utf-8'))
         output.seek(0)
         
-        return output, ".json" # Return the extension as the second value
+        return output, ".txt" # Return the extension as the second value
 
     except Exception as e:
         logger.error(f"Error converting to JSON: {e}")
