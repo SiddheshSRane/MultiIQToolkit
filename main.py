@@ -76,7 +76,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.api_route("/api", methods=["GET", "HEAD"])
 def read_root():
-    return {"status": "ok", "message": "MiniIQ API is running"}
+    return {"status": "ok", "message": "DataRefinery API is running"}
 
 # =====================
 # API HELPERS
@@ -128,12 +128,12 @@ async def unified_batch_handler(
             raise HTTPException(status_code=400, detail=result_val)
         
         output.seek(0)
-        ext = ".csv" if is_csv else ".xlsx"
+        media_type = "text/csv" if is_csv else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         # Preserve original basename if possible
         base_name = os.path.splitext(filename)[0]
         return StreamingResponse(
             output,
-            media_type="application/octet-stream",
+            media_type=media_type,
             headers={"Content-Disposition": f'attachment; filename="{base_name}{ext_suffix}{ext}"'}
         )
 
@@ -488,7 +488,7 @@ async def merge_advanced_api(
 
         return StreamingResponse(
             output,
-            media_type="application/octet-stream",
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if filename.endswith(".xlsx") else "text/csv",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     except Exception as e:

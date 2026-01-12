@@ -47,6 +47,10 @@ def convert_column_advanced(
         if not text:
             return ""
 
+        # Unescape delimiter
+        if delimiter == "\\n": delimiter = "\n"
+        if delimiter == "\\t": delimiter = "\t"
+
         # Normalize newlines
         lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 

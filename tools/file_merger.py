@@ -67,6 +67,8 @@ def merge_files_advanced(
                     df = df.apply(lambda x: x.str.upper() if x.dtype == "object" else x)
                 elif casing == "lower":
                     df = df.apply(lambda x: x.str.lower() if x.dtype == "object" else x)
+                elif casing == "title":
+                    df = df.apply(lambda x: x.str.title() if x.dtype == "object" else x)
 
                 dfs.append(df)
 
@@ -219,11 +221,8 @@ def preview_common_columns(
         
         if i == 0:
             first_file_cols_ordered = cols
-            # Add headers and few rows for sample
-            preview_sample = {
-                "headers": cols,
-                "rows": df.astype(str).replace('nan', '').values.tolist()
-            }
+            # Add headers and few rows for sample (list of lists)
+            preview_sample = [cols] + df.astype(str).replace('nan', '').values.tolist()
 
         target_set = {c.lower() for c in cols} if case_insensitive else set(cols)
         column_sets.append(target_set)
