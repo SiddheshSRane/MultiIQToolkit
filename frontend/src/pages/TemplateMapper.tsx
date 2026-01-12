@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FileUpload from "../components/FileUpload";
 import {
     ClipboardList,
@@ -88,9 +88,23 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
             const res = await fetch("/api/file/template-preview", { method: "POST", body: fd });
             const data = await res.json();
             setPreview(data);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
+
+    // Auto-preview useEffect with debounce
+    useEffect(() => {
+        if (!dataFile || templateHeaders.length === 0) return;
+
+        const timer = setTimeout(() => {
+            fetchPreview();
+        }, 800); // 800ms debounce
+
+        return () => clearTimeout(timer);
+    }, [mapping, dataFile, templateHeaders]);
 
     const handleDownload = async () => {
         if (!dataFile || templateHeaders.length === 0) return;
@@ -268,12 +282,10 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
             {templateHeaders.length > 0 && dataFile && (
                 <div className="section" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                    <button className="secondary" onClick={fetchPreview} disabled={loading}>
-                        {loading ? <><Loader2 className="animate-spin" size={18} /> Loading...</> : <><Search size={18} /> Preview Mapping</>}
-                    </button>
                     <button className="primary" onClick={handleDownload} disabled={loading}>
                         {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <><Rocket size={18} /> Generate & Download Excel</>}
                     </button>
+                    {loading && <p className="desc" style={{ margin: 0, fontSize: "12px" }}>Updating preview...</p>}
                 </div>
             )}
 
