@@ -14,6 +14,8 @@ import {
 type MappingRule = {
     type: "column" | "static" | "none";
     value: string;
+    transform?: "none" | "trim" | "uppercase" | "lowercase" | "titlecase";
+    required?: boolean;
 };
 
 type PreviewData = {
@@ -37,6 +39,10 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     const [preview, setPreview] = useState<PreviewData | null>(null);
     const [loading, setLoading] = useState(false);
 
+    // UI State for filtering
+    const [searchTerm, setSearchTerm] = useState("");
+    const [showOnlyUnmapped, setShowOnlyUnmapped] = useState(false);
+
     // Load Template Headers
     const loadTemplateHeaders = async (file: File) => {
         const fd = new FormData();
@@ -49,7 +55,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
             // Initialize mapping
             const newMapping: Record<string, MappingRule> = {};
             data.headers.forEach((h: string) => {
-                newMapping[h] = { type: "none", value: "" };
+                newMapping[h] = { type: "none", value: "", transform: "none", required: false };
             });
             setMapping(newMapping);
         } catch (e) { console.error(e); }
@@ -67,7 +73,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     };
 
     const updateMapping = (tCol: string, rule: MappingRule) => {
-        setMapping(prev => ({ ...prev, [tCol]: rule }));
+        setMapping((prev: Record<string, MappingRule>) => ({ ...prev, [tCol]: rule }));
     };
 
     const fetchPreview = async () => {
@@ -88,6 +94,14 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
     const handleDownload = async () => {
         if (!dataFile || templateHeaders.length === 0) return;
+
+        // Validation: check for required columns that are unmapped
+        const missingRequired = Object.entries(mapping).filter(([_, rule]) => rule.required && rule.type === "none");
+        if (missingRequired.length > 0) {
+            alert(`The following required columns are unmapped: ${missingRequired.map(([h]) => h).join(", ")}`);
+            return;
+        }
+
         setLoading(true);
         const fd = new FormData();
         fd.append("data_file", dataFile);
@@ -146,52 +160,99 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
             {templateHeaders.length > 0 && (
                 <div className="section">
-                    <h4><Settings size={18} /> 3. Map Columns</h4>
+                    <div className="flex-responsive" style={{ marginBottom: 16 }}>
+                        <h4><Settings size={18} /> 3. Map Columns</h4>
+                        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                            <div className="input-group" style={{ marginBottom: 0 }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search columns..."
+                                    style={{ padding: "6px 12px", fontSize: "13px", minWidth: "200px" }}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <label className="checkbox" style={{ fontSize: "13px", whiteSpace: "nowrap" }}>
+                                <input type="checkbox" checked={showOnlyUnmapped} onChange={(e) => setShowOnlyUnmapped(e.target.checked)} />
+                                Only Unmapped
+                            </label>
+                        </div>
+                    </div>
+
                     <div className="table-container" style={{ marginTop: 20 }}>
                         <table>
                             <thead>
                                 <tr>
+                                    <th style={{ width: "40px" }}>Req.</th>
                                     <th>Template Column</th>
                                     <th>Source Selection</th>
                                     <th>Value / Column Name</th>
+                                    <th>Transformation</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {templateHeaders.map(tCol => (
-                                    <tr key={tCol}>
-                                        <td style={{ fontWeight: 600 }}>{tCol}</td>
-                                        <td>
-                                            <select
-                                                style={{ padding: "4px 8px" }}
-                                                value={mapping[tCol]?.type || "none"}
-                                                onChange={(e) => updateMapping(tCol, { type: e.target.value as any, value: "" })}
-                                            >
-                                                <option value="none">Unmapped (Blank)</option>
-                                                <option value="column">Source Column</option>
-                                                <option value="static">Static Value</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            {mapping[tCol]?.type === "column" && (
-                                                <select
-                                                    value={mapping[tCol]?.value}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}
-                                                >
-                                                    <option value="">Select Column...</option>
-                                                    {dataHeaders.map(dCol => <option key={dCol} value={dCol}>{dCol}</option>)}
-                                                </select>
-                                            )}
-                                            {mapping[tCol]?.type === "static" && (
+                                {templateHeaders
+                                    .filter(h => h.toLowerCase().includes(searchTerm.toLowerCase()))
+                                    .filter(h => !showOnlyUnmapped || mapping[h]?.type === "none")
+                                    .map((tCol: string) => (
+                                        <tr key={tCol} style={{ background: mapping[tCol]?.required && mapping[tCol]?.type === "none" ? "rgba(239, 68, 68, 0.05)" : "transparent" }}>
+                                            <td>
                                                 <input
-                                                    type="text"
-                                                    placeholder="Enter static value..."
-                                                    value={mapping[tCol]?.value}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}
+                                                    type="checkbox"
+                                                    checked={mapping[tCol]?.required || false}
+                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], required: e.target.checked })}
+                                                    title="Mark as required"
                                                 />
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                            <td style={{ fontWeight: 600 }}>
+                                                {tCol}
+                                                {mapping[tCol]?.required && <span style={{ color: "var(--primary)", marginLeft: 4 }}>*</span>}
+                                            </td>
+                                            <td>
+                                                <select
+                                                    style={{ padding: "4px 8px" }}
+                                                    value={mapping[tCol]?.type || "none"}
+                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], type: e.target.value as any, value: "" })}
+                                                >
+                                                    <option value="none">Unmapped (Blank)</option>
+                                                    <option value="column">Source Column</option>
+                                                    <option value="static">Static Value</option>
+                                                </select>
+                                            </td>
+                                            <td>
+                                                {mapping[tCol]?.type === "column" && (
+                                                    <select
+                                                        value={mapping[tCol]?.value}
+                                                        onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}
+                                                    >
+                                                        <option value="">Select Column...</option>
+                                                        {dataHeaders.map((dCol: string) => <option key={dCol} value={dCol}>{dCol}</option>)}
+                                                    </select>
+                                                )}
+                                                {mapping[tCol]?.type === "static" && (
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Enter static value..."
+                                                        value={mapping[tCol]?.value}
+                                                        onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}
+                                                    />
+                                                )}
+                                            </td>
+                                            <td>
+                                                <select
+                                                    disabled={mapping[tCol]?.type !== "column"}
+                                                    value={mapping[tCol]?.transform || "none"}
+                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], transform: e.target.value as any })}
+                                                >
+                                                    <option value="none">None</option>
+                                                    <option value="trim">Trim</option>
+                                                    <option value="uppercase">UPPERCASE</option>
+                                                    <option value="lowercase">lowercase</option>
+                                                    <option value="titlecase">Title Case</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    ))}
                             </tbody>
                         </table>
                     </div>
@@ -220,9 +281,9 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {preview.rows.map((row, i) => (
+                                {preview.rows.map((row: string[], i: number) => (
                                     <tr key={i}>
-                                        {row.map((cell, j) => <td key={j}>{cell}</td>)}
+                                        {row.map((cell: string, j: number) => <td key={j}>{cell}</td>)}
                                     </tr>
                                 ))}
                             </tbody>
