@@ -286,31 +286,18 @@ export default function Auth() {
             <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '4px solid #bfdbfe' }} />
           </div>
 
-          <div style={{ marginBottom: '40px' }}>
-            {/* Placeholder for 3D Illustration - Using a div to simulate */}
-            <div style={{
-              width: '320px',
-              height: '240px',
-              background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 100%)',
-              borderRadius: '24px',
-              boxShadow: '0 20px 40px -10px rgba(59, 130, 246, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              margin: '0 auto'
-            }}>
-              {/* Simulate 3D elements with CSS circles/squares */}
-              <div style={{ position: 'absolute', width: '80px', height: '80px', background: primaryColor, borderRadius: '20px', transform: 'rotate(-10deg) translate(-40px, -20px)', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}></div>
-              <div style={{ position: 'absolute', width: '60px', height: '60px', background: '#3b82f6', borderRadius: '50%', transform: 'translate(40px, -40px)', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}></div>
-              <div style={{ position: 'relative', width: '200px', height: '140px', background: 'white', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'end' }}>
-                  <div style={{ width: '12px', height: '30px', background: '#bfdbfe', borderRadius: '4px' }}></div>
-                  <div style={{ width: '12px', height: '50px', background: primaryColor, borderRadius: '4px' }}></div>
-                  <div style={{ width: '12px', height: '40px', background: '#93c5fd', borderRadius: '4px' }}></div>
-                </div>
-              </div>
-            </div>
+          <div style={{ marginBottom: '40px', width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <img
+              src="/login-hero.png"
+              alt="Security and Analytics 3D Illustration"
+              style={{
+                maxWidth: '100%',
+                height: 'auto',
+                maxHeight: '350px',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 20px 30px rgba(59, 130, 246, 0.15))'
+              }}
+            />
           </div>
 
           <h3 style={{ fontSize: '20px', fontWeight: '700', color: textColor, marginBottom: '12px' }}>
