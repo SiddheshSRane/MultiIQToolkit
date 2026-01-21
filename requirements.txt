@@ -6,7 +6,6 @@ aiofiles
 pandas
 openpyxl
 pyarrow
-python-calamine
 python-dotenv
 requests
 httpx
