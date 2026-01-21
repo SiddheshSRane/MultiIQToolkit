@@ -486,6 +486,10 @@ td {
     width: 100%;
     max-width: 100%;
   }
+  
+  /* ... rest of existing mobile styles ... */
+  /* I won't replace the css file, I'll just skip this and do inline styles in Auth.tsx to be safe and fast */
+}
 
   /* Header Branding */
   .flex-responsive {

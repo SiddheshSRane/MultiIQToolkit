@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Lock, User, LogIn, UserPlus, ArrowRight, AlertCircle, CheckCircle, Component } from 'lucide-react';
+import { Mail, Lock, User, LogIn, UserPlus, ArrowRight, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -9,6 +9,8 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,23 +26,15 @@ export default function Auth() {
     try {
       if (mode === 'signin') {
         const { error } = await signIn(email, password);
-        if (error) {
-          setError(error.message);
-        }
+        if (error) setError(error.message);
       } else if (mode === 'signup') {
         const { error } = await signUp(email, password, fullName);
-        if (error) {
-          setError(error.message);
-        } else {
-          setSuccess('Account created! Please check your email to verify your account.');
-        }
+        if (error) setError(error.message);
+        else setSuccess('Account created! Check your email.');
       } else if (mode === 'forgot') {
         const { error } = await resetPassword(email);
-        if (error) {
-          setError(error.message);
-        } else {
-          setSuccess('Password reset email sent! Check your inbox.');
-        }
+        if (error) setError(error.message);
+        else setSuccess('Reset link sent!');
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -49,257 +43,300 @@ export default function Auth() {
     }
   }, [mode, email, password, fullName, signIn, signUp, resetPassword]);
 
+  // Styles
+  const primaryColor = '#4f46e5';
+  const textColor = '#1e293b';
+  const mutedColor = '#64748b';
+  const inputBg = '#f1f5f9';
+
   return (
     <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: `linear-gradient(to bottom, ${primaryColor} 50%, #f8fafc 50%)`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: '80vh',
       padding: '20px',
+      zIndex: 9999, // Overlay everything
     }}>
-      <div
-        className="glass-card"
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          padding: '40px',
-          borderRadius: '24px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(17, 25, 40, 0.75)',
-          backdropFilter: 'blur(16px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary, #8b5cf6) 100%)',
-            marginBottom: '16px',
-            boxShadow: '0 4px 6px -1px rgba(var(--primary-rgb, 99, 102, 241), 0.3)'
-          }}>
-            <Component size={24} color="white" />
-          </div>
-          <h2 style={{
-            fontSize: '24px',
-            fontWeight: 700,
-            marginBottom: '8px',
-            background: 'linear-gradient(to right, #fff, #a5b4fc)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>
-            {mode === 'signin' && 'Welcome Back'}
-            {mode === 'signup' && 'Create Account'}
-            {mode === 'forgot' && 'Reset Password'}
-          </h2>
-          <p className="desc" style={{ fontSize: '14px', opacity: 0.7 }}>
-            {mode === 'signin' && 'Enter your credentials to access your workspace'}
-            {mode === 'signup' && 'Get started with your free account today'}
-            {mode === 'forgot' && 'We\'ll send you a link to reset your password'}
-          </p>
-        </div>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '32px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        width: '100%',
+        maxWidth: '1000px',
+        minHeight: '600px',
+        display: 'flex',
+        overflow: 'hidden',
+        flexDirection: 'row', // Default to row
+      }}>
 
-        {error && (
-          <div
-            style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              marginBottom: '24px',
-              display: 'flex',
-              alignItems: 'start',
-              gap: '12px',
-            }}
-            role="alert"
-          >
-            <AlertCircle size={18} className="text-red-400" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span style={{ fontSize: '13px', color: '#fca5a5', lineHeight: '1.4' }}>{error}</span>
+        {/* Left Side - Form */}
+        <div style={{
+          flex: '1',
+          padding: '60px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          backgroundColor: '#ffffff',
+        }}>
+          <div style={{ marginBottom: '32px' }}>
+            <h2 style={{
+              fontSize: '32px',
+              fontWeight: '800',
+              color: textColor,
+              marginBottom: '8px',
+              background: 'none',
+              WebkitTextFillColor: 'initial',
+            }}>
+              {mode === 'signin' && 'Login'}
+              {mode === 'signup' && 'Sign Up'}
+              {mode === 'forgot' && 'Reset Password'}
+            </h2>
+            <p style={{ color: mutedColor, fontSize: '15px' }}>
+              {mode === 'signin' && 'Welcome back! Please login to your account.'}
+              {mode === 'signup' && 'Create an account to get started.'}
+              {mode === 'forgot' && 'Enter your email to recover your password.'}
+            </p>
           </div>
-        )}
 
-        {success && (
-          <div
-            style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              background: 'rgba(34, 197, 94, 0.1)',
-              border: '1px solid rgba(34, 197, 94, 0.2)',
-              marginBottom: '24px',
-              display: 'flex',
-              alignItems: 'start',
-              gap: '12px',
-            }}
-            role="status"
-          >
-            <CheckCircle size={18} className="text-green-400" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span style={{ fontSize: '13px', color: '#86efac', lineHeight: '1.4' }}>{success}</span>
-          </div>
-        )}
+          {/* Feedback Messages */}
+          {error && (
+            <div style={{ padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#ef4444', marginBottom: '20px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px' }}>
+              <AlertCircle size={16} /> {error}
+            </div>
+          )}
+          {success && (
+            <div style={{ padding: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#22c55e', marginBottom: '20px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px' }}>
+              <CheckCircle size={16} /> {success}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit}>
-          {mode === 'signup' && (
-            <div className="input-group" style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, marginBottom: '8px', display: 'block', color: '#e2e8f0' }}>Full Name</label>
-              <div style={{ position: 'relative' }}>
-                <User size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {mode === 'signup' && (
+              <div className="input-field">
+                <label style={{ display: 'none' }}>Full Name</label>
                 <input
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Full Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '10px 12px 10px 40px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
-                    fontSize: '14px',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: inputBg,
+                    border: '1px solid transparent',
+                    fontSize: '15px',
+                    color: textColor,
+                    outline: 'none',
                   }}
                 />
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="input-group" style={{ marginBottom: '20px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 500, marginBottom: '8px', display: 'block', color: '#e2e8f0' }}>Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <div className="input-field">
+              <label style={{ display: 'none' }}>Email</label>
               <input
                 type="email"
-                placeholder="you@example.com"
+                placeholder="Username or email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 40px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  background: 'rgba(0, 0, 0, 0.2)',
-                  color: 'white',
-                  fontSize: '14px',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: inputBg,
+                  border: '1px solid transparent',
+                  fontSize: '15px',
+                  color: textColor,
+                  outline: 'none',
                 }}
               />
             </div>
-          </div>
 
-          {mode !== 'forgot' && (
-            <div className="input-group" style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>Password</label>
-                {mode === 'signin' && (
-                  <button
-                    type="button"
-                    onClick={() => setMode('forgot')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--primary)',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      padding: 0,
-                    }}
-                  >
-                    Forgot password?
-                  </button>
-                )}
-              </div>
-              <div style={{ position: 'relative' }}>
-                <Lock size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            {mode !== 'forgot' && (
+              <div className="input-field" style={{ position: 'relative' }}>
+                <label style={{ display: 'none' }}>Password</label>
                 <input
-                  type="password"
-                  placeholder="••••••••"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
                   style={{
                     width: '100%',
-                    padding: '10px 12px 10px 40px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'rgba(0, 0, 0, 0.2)',
-                    color: 'white',
-                    fontSize: '14px',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: inputBg,
+                    border: '1px solid transparent',
+                    fontSize: '15px',
+                    color: textColor,
+                    outline: 'none',
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: mutedColor,
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
-            </div>
-          )}
+            )}
 
-          <button
-            type="submit"
-            disabled={loading || !email || (mode !== 'forgot' && !password)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              borderRadius: '8px',
-              background: 'var(--primary)',
-              color: 'white',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
+            {mode === 'signin' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: mutedColor, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    style={{ borderRadius: '4px', width: '16px', height: '16px', accentColor: primaryColor }}
+                  />
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMode('forgot')}
+                  style={{ background: 'none', border: 'none', color: primaryColor, fontWeight: '600', cursor: 'pointer', padding: 0 }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: primaryColor,
+                color: 'white',
+                padding: '16px',
+                borderRadius: '12px',
+                border: 'none',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                opacity: loading ? 0.7 : 1,
+                marginTop: '10px',
+                boxShadow: '0 10px 20px -5px rgba(79, 70, 229, 0.4)',
+              }}
+            >
+              {loading ? 'Processing...' : (
+                mode === 'signin' ? 'Login' : (mode === 'signup' ? 'Sign Up' : 'Send Link')
+              )}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '32px', textAlign: 'center', fontSize: '14px', color: mutedColor }}>
+            {mode === 'signin' && (
+              <>
+                Don't have an account?{' '}
+                <button onClick={() => setMode('signup')} style={{ background: 'none', border: 'none', color: primaryColor, fontWeight: '600', cursor: 'pointer', padding: 0 }}>Sign up</button>
+              </>
+            )}
+            {mode === 'signup' && (
+              <>
+                Already have an account?{' '}
+                <button onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', color: primaryColor, fontWeight: '600', cursor: 'pointer', padding: 0 }}>Login</button>
+              </>
+            )}
+            {mode === 'forgot' && (
+              <button onClick={() => setMode('signin')} style={{ background: 'none', border: 'none', color: primaryColor, fontWeight: '600', cursor: 'pointer', padding: 0 }}>Back to Login</button>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side - Illustration */}
+        <div className="auth-illustration" style={{
+          flex: '1',
+          backgroundColor: '#eff6ff', // Light blue tint
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px',
+          textAlign: 'center',
+          position: 'relative',
+        }}>
+          {/* Decorative Elements */}
+          <div style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+          }}>
+            <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '4px solid #bfdbfe' }} />
+          </div>
+
+          <div style={{ marginBottom: '40px' }}>
+            {/* Placeholder for 3D Illustration - Using a div to simulate */}
+            <div style={{
+              width: '320px',
+              height: '240px',
+              background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 100%)',
+              borderRadius: '24px',
+              boxShadow: '0 20px 40px -10px rgba(59, 130, 246, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              transition: 'transform 0.1s ease',
-              opacity: (loading || !email || (mode !== 'forgot' && !password)) ? 0.7 : 1,
-            }}
-          >
-            {loading ? (
-              <span>Processing...</span>
-            ) : (
-              <>
-                {mode === 'signin' && <><LogIn size={18} /> Sign In</>}
-                {mode === 'signup' && <><UserPlus size={18} /> Create Account</>}
-                {mode === 'forgot' && <><ArrowRight size={18} /> Send Reset Link</>}
-              </>
-            )}
-          </button>
-        </form>
+              position: 'relative',
+              margin: '0 auto'
+            }}>
+              {/* Simulate 3D elements with CSS circles/squares */}
+              <div style={{ position: 'absolute', width: '80px', height: '80px', background: primaryColor, borderRadius: '20px', transform: 'rotate(-10deg) translate(-40px, -20px)', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}></div>
+              <div style={{ position: 'absolute', width: '60px', height: '60px', background: '#3b82f6', borderRadius: '50%', transform: 'translate(40px, -40px)', boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}></div>
+              <div style={{ position: 'relative', width: '200px', height: '140px', background: 'white', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'end' }}>
+                  <div style={{ width: '12px', height: '30px', background: '#bfdbfe', borderRadius: '4px' }}></div>
+                  <div style={{ width: '12px', height: '50px', background: primaryColor, borderRadius: '4px' }}></div>
+                  <div style={{ width: '12px', height: '40px', background: '#93c5fd', borderRadius: '4px' }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div style={{ marginTop: '32px', textAlign: 'center' }}>
-          {mode === 'signin' && (
-            <p style={{ fontSize: '14px', color: '#94a3b8' }}>
-              Don't have an account?{' '}
-              <button
-                onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
-                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Sign up
-              </button>
-            </p>
-          )}
-          {mode === 'signup' && (
-            <p style={{ fontSize: '14px', color: '#94a3b8' }}>
-              Already have an account?{' '}
-              <button
-                onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
-                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Sign in
-              </button>
-            </p>
-          )}
-          {mode === 'forgot' && (
-            <button
-              onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
-              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto', cursor: 'pointer' }}
-            >
-              <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to Sign In
-            </button>
-          )}
+          <h3 style={{ fontSize: '20px', fontWeight: '700', color: textColor, marginBottom: '12px' }}>
+            Check Your Project Progress
+          </h3>
+          <p style={{ fontSize: '14px', color: mutedColor, lineHeight: '1.6', maxWidth: '300px', margin: '0 auto' }}>
+            Manage your files, track conversions, and collaborate with your team in real-time efficiently.
+          </p>
+
+          {/* Dots */}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '30px', justifyContent: 'center' }}>
+            <div style={{ width: '24px', height: '6px', borderRadius: '3px', background: primaryColor }}></div>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+          </div>
         </div>
+
       </div>
+
+      <style>{`
+        @media (max-width: 900px) {
+           .auth-illustration {
+             display: none !important;
+           }
+        }
+      `}</style>
     </div>
   );
 }
