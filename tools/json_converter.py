@@ -19,10 +19,12 @@ def convert_to_json(
         file_buffer.seek(0)
         if is_csv:
             try:
-                df = pd.read_csv(file_buffer, encoding='utf-8-sig')
-            except UnicodeDecodeError:
+                # Try UTF-8-sig first to handle BOM
+                df = pd.read_csv(file_buffer, encoding='utf-8-sig', engine='c')
+            except Exception:
+                # Fallback to Latin-1
                 file_buffer.seek(0)
-                df = pd.read_csv(file_buffer, encoding='latin1')
+                df = pd.read_csv(file_buffer, encoding='latin1', engine='c')
         else:
             df = pd.read_excel(file_buffer, sheet_name=sheet_name)
 

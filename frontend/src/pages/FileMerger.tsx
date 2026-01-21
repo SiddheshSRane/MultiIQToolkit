@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     Layers,
@@ -10,8 +11,11 @@ import {
     Download,
     Loader2,
     Zap,
-    CheckCircle
+    CheckCircle,
+    AlertCircle
 } from "lucide-react";
+import { downloadBlob, extractFilename } from "../utils/download";
+import { parseApiError } from "../utils/apiError";
 
 type SampleData = {
     headers: string[];
@@ -46,24 +50,37 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
     const [loading, setLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [resultBlob, setResultBlob] = useState<Blob | null>(null);
     const [resultFilename, setResultFilename] = useState<string | null>(null);
 
-    const handleFileChange = async (selectedFiles: File[]) => {
+    const showError = useCallback((message: string) => {
+        setErrorMsg(message);
+        setStatusMsg(null);
+        setTimeout(() => setErrorMsg(null), 7000);
+    }, []);
+
+    const showSuccess = useCallback((message: string) => {
+        setStatusMsg(message);
+        setErrorMsg(null);
+    }, []);
+
+    const handleFileChange = useCallback(async (selectedFiles: File[]) => {
         setFiles(selectedFiles);
         setCommonColumns([]);
         setSelectedCols([]);
         setJoinKey("");
         setSample(null);
         setStatusMsg(null);
+        setErrorMsg(null);
         setResultBlob(null);
         setResultFilename(null);
 
         if (selectedFiles.length < 2) return;
         await fetchPreview(selectedFiles, strategy, caseInsensitive, allSheets);
-    };
+    }, [strategy, caseInsensitive, allSheets]);
 
-    const fetchPreview = async (fs: File[], strat: string, caseIn: boolean, sheets: boolean) => {
+    const fetchPreview = useCallback(async (fs: File[], strat: string, caseIn: boolean, sheets: boolean) => {
         try {
             setLoading(true);
             const fd = new FormData();
@@ -72,15 +89,14 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             fd.append("case_insensitive", String(caseIn));
             fd.append("all_sheets", String(sheets));
 
-            const res = await fetch("/api/file/preview-common-columns", {
+            const res = await fetchWithAuth("/api/file/preview-common-columns", {
                 method: "POST",
                 body: fd,
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.detail || "Failed to preview files");
-                return;
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
             }
 
             const data = await res.json();
@@ -89,26 +105,33 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             if (data.columns.length > 0) setJoinKey(data.columns[0]);
             setSample(data.sample);
         } catch (e) {
-            console.error(e);
+            console.error("Preview error:", e);
+            showError(e instanceof Error ? e.message : "Failed to preview files");
         } finally {
             setLoading(false);
         }
-    };
+    }, [showError]);
 
-    const handleMerge = async () => {
+    const handleMerge = useCallback(async () => {
         if (files.length < 2) {
-            alert("Select at least 2 files.");
+            showError("Select at least 2 files.");
             return;
         }
 
         if (mergeMode === "join" && !joinKey) {
-            alert("Please select a Join Key.");
+            showError("Please select a Join Key.");
+            return;
+        }
+
+        if (selectedCols.length === 0) {
+            showError("Please select at least one column to include in the merge.");
             return;
         }
 
         try {
             setLoading(true);
             setStatusMsg(null);
+            setErrorMsg(null);
             const fd = new FormData();
             files.forEach((f) => fd.append("files", f));
             fd.append("strategy", strategy);
@@ -126,51 +149,55 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             fd.append("join_mode", mergeMode === "stack" ? "stack" : joinType);
             if (mergeMode === "join") fd.append("join_key", joinKey);
 
-            const res = await fetch("/api/file/merge-common-columns", {
+            const res = await fetchWithAuth("/api/file/merge-common-columns", {
                 method: "POST",
                 body: fd,
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.detail || "Merge failed");
-                return;
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
+
+            // Validate response has content
+            const contentType = res.headers.get("content-type");
+            if (!contentType) {
+                throw new Error("Server response missing content type");
             }
 
             const blob = await res.blob();
-            const contentDisposition = res.headers.get("content-disposition");
-            let filename = `merged_${mergeMode === "stack" ? strategy : joinType}.xlsx`;
 
-            if (contentDisposition) {
-                const match = contentDisposition.match(/filename="(.+)"/);
-                if (match && match[1]) filename = match[1];
+            // Validate blob is not empty
+            if (blob.size === 0) {
+                throw new Error("Server returned empty file");
             }
+
+            const contentDisposition = res.headers.get("content-disposition");
+            const defaultFilename = `merged_${mergeMode === "stack" ? strategy : joinType}_${Date.now()}.xlsx`;
+            const filename = extractFilename(contentDisposition, defaultFilename);
 
             setResultBlob(blob);
             setResultFilename(filename);
-            setStatusMsg("Files merged successfully!");
+            showSuccess(`Files merged successfully! Result: ${filename}`);
             if (onLogAction) onLogAction("File Merge", filename, blob);
         } catch (e) {
-            console.error(e);
-            alert("Error merging files");
+            console.error("Merge error:", e);
+            showError(e instanceof Error ? e.message : "Error merging files");
         } finally {
             setLoading(false);
         }
-    };
+    }, [files, mergeMode, joinKey, strategy, caseInsensitive, removeDuplicates, allSheets, selectedCols, trimWhitespace, casing, includeSource, joinType, onLogAction, showError]);
 
-    const toggleColumn = (col: string) => {
+    const toggleColumn = useCallback((col: string) => {
         setSelectedCols(prev =>
             prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]
         );
-    };
+    }, []);
 
-    const downloadResult = () => {
+    const downloadResult = useCallback(() => {
         if (!resultBlob || !resultFilename) return;
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(resultBlob);
-        link.download = resultFilename;
-        link.click();
-    };
+        downloadBlob(resultBlob, resultFilename);
+    }, [resultBlob, resultFilename]);
 
     return (
         <div className="app glass-card">
@@ -373,8 +400,33 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                 </>
             )}
 
+            {errorMsg && (
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--danger)",
+                        background: "rgba(244, 63, 94, 0.05)",
+                    }}
+                    role="alert"
+                    aria-live="polite"
+                >
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
+                        <AlertCircle size={18} /> Error
+                    </h4>
+                    <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
+                </div>
+            )}
+
             {statusMsg && (
-                <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--primary)",
+                        background: "rgba(99, 102, 241, 0.05)",
+                    }}
+                    role="status"
+                    aria-live="polite"
+                >
                     <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
                         <CheckCircle size={18} /> Merge Successful
                     </h4>

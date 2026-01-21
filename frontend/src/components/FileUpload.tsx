@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Upload, File, Archive, X } from "lucide-react";
+import { useState, useRef, useCallback, useMemo } from "react";
+import { Upload, File as FileIcon, Archive, X } from "lucide-react";
 
 interface FileUploadProps {
     onFilesSelected: (files: File[]) => void;
@@ -8,40 +8,71 @@ interface FileUploadProps {
     files: File[];
 }
 
-export default function FileUpload({ onFilesSelected, multiple = true, accept = ".csv,.xlsx,.xls,.zip", files }: FileUploadProps) {
+const DEFAULT_ACCEPT = ".csv,.xlsx,.xls,.zip";
+
+export default function FileUpload({
+    onFilesSelected,
+    multiple = true,
+    accept = DEFAULT_ACCEPT,
+    files
+}: FileUploadProps) {
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleDragOver = (e: React.DragEvent) => {
+    const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(true);
-    };
+    }, []);
 
-    const handleDragLeave = () => {
-        setIsDragging(false);
-    };
-
-    const handleDrop = (e: React.DragEvent) => {
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
-        if (e.dataTransfer.files) {
-            const droppedFiles = Array.from(e.dataTransfer.files);
-            onFilesSelected(multiple ? [...files, ...droppedFiles] : [droppedFiles[0]]);
-        }
-    };
+    }, []);
 
-    const formatSize = (bytes: number) => {
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const droppedFiles = Array.from(e.dataTransfer.files);
+            const newFiles = multiple ? [...files, ...droppedFiles] : [droppedFiles[0]];
+            onFilesSelected(newFiles);
+        }
+    }, [files, multiple, onFilesSelected]);
+
+    const formatSize = useCallback((bytes: number): string => {
         if (bytes === 0) return "0 Bytes";
         const k = 1024;
         const sizes = ["Bytes", "KB", "MB", "GB"];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-    };
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+    }, []);
 
-    const removeFile = (index: number) => {
+    const removeFile = useCallback((index: number) => {
         const updated = files.filter((_, i) => i !== index);
         onFilesSelected(updated);
-    };
+    }, [files, onFilesSelected]);
+
+    const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const selected = Array.from(e.target.files);
+            const newFiles = multiple ? [...files, ...selected] : [selected[0]];
+            onFilesSelected(newFiles);
+        }
+        // Reset input to allow selecting the same file again
+        e.target.value = "";
+    }, [files, multiple, onFilesSelected]);
+
+    const handleClick = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
+
+    const totalSize = useMemo(() => {
+        return files.reduce((sum, file) => sum + file.size, 0);
+    }, [files]);
 
     return (
         <div className="file-upload-container">
@@ -50,10 +81,23 @@ export default function FileUpload({ onFilesSelected, multiple = true, accept = 
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleClick}
+                role="button"
+                tabIndex={0}
+                aria-label="File upload drop zone"
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleClick();
+                    }
+                }}
             >
                 <div className="drop-zone-icon">
-                    {isDragging ? <Upload size={40} className="text-primary" /> : <File size={40} className="text-primary" style={{ opacity: 0.5 }} />}
+                    {isDragging ? (
+                        <Upload size={40} className="text-primary" aria-hidden="true" />
+                    ) : (
+                        <FileIcon size={40} className="text-primary" style={{ opacity: 0.5 }} aria-hidden="true" />
+                    )}
                 </div>
                 <div className="drop-zone-text">
                     <p style={{ margin: "0 0 4px 0", fontWeight: 700, fontSize: "16px" }}>
@@ -69,22 +113,21 @@ export default function FileUpload({ onFilesSelected, multiple = true, accept = 
                     style={{ display: "none" }}
                     multiple={multiple}
                     accept={accept}
-                    onChange={(e) => {
-                        if (e.target.files) {
-                            const selected = Array.from(e.target.files);
-                            onFilesSelected(multiple ? [...files, ...selected] : [selected[0]]);
-                        }
-                    }}
+                    onChange={handleFileInputChange}
+                    aria-label="File input"
                 />
             </div>
 
             {files.length > 0 && (
                 <div className="file-staged-list">
+                    <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px" }}>
+                        {files.length} file{files.length > 1 ? "s" : ""} selected ({formatSize(totalSize)})
+                    </div>
                     {files.map((f, i) => (
-                        <div key={`${f.name}-${i}`} className="file-staged-item">
+                        <div key={`${f.name}-${i}-${f.size}`} className="file-staged-item">
                             <div className="file-info">
-                                <span style={{ fontSize: "18px", display: "flex", alignItems: "center" }}>
-                                    {f.name.endsWith(".zip") ? <Archive size={18} /> : <File size={18} />}
+                                <span style={{ fontSize: "18px", display: "flex", alignItems: "center" }} aria-hidden="true">
+                                    {f.name.endsWith(".zip") ? <Archive size={18} /> : <FileIcon size={18} />}
                                 </span>
                                 <div style={{ display: "flex", flexDirection: "column" }}>
                                     <span style={{ fontWeight: 600 }}>{f.name}</span>
@@ -97,7 +140,8 @@ export default function FileUpload({ onFilesSelected, multiple = true, accept = 
                                     e.stopPropagation();
                                     removeFile(i);
                                 }}
-                                title="Remove file"
+                                title={`Remove ${f.name}`}
+                                aria-label={`Remove file ${f.name}`}
                             >
                                 <X size={16} />
                             </button>

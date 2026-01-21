@@ -16,24 +16,30 @@ logger = logging.getLogger(__name__)
 def _read_csv(file) -> pd.DataFrame:
     try:
         if hasattr(file, 'seek'): file.seek(0)
-        return pd.read_csv(file, encoding='utf-8-sig')
-    except UnicodeDecodeError:
-        if hasattr(file, 'seek'): file.seek(0)
-        return pd.read_csv(file, encoding='latin1')
+        # Try engine='c' with utf-8-sig first
+        return pd.read_csv(file, encoding='utf-8-sig', engine='c')
+    except Exception:
+        try:
+            if hasattr(file, 'seek'): file.seek(0)
+            return pd.read_csv(file, encoding='latin1', engine='c')
+        except Exception:
+            if hasattr(file, 'seek'): file.seek(0)
+            return pd.read_csv(file)
 
 
 def _read_excel_sheets(file) -> dict:
-    # Use dtype=str to prevent pandas from inferring types (e.g. converting "00123" to 123).
-    # This preserves text IDs, leading zeros, and date strings as-is.
-    # We accept that visual formatting (colors, widths) will be reset by this read-write cycle.
-    xls = pd.ExcelFile(file)
-    sheets = {}
-    for name in xls.sheet_names:
-        try:
-            sheets[name] = pd.read_excel(xls, sheet_name=name, dtype=str)
-        except Exception:
-            sheets[name] = pd.DataFrame()
-    return sheets
+    try:
+        xls = pd.ExcelFile(file)
+        sheets = {}
+        for name in xls.sheet_names:
+            try:
+                sheets[name] = pd.read_excel(xls, sheet_name=name, dtype=str)
+            except Exception:
+                sheets[name] = pd.DataFrame()
+        return sheets
+    except Exception as e:
+        logger.error(f"Error reading Excel: {e}")
+        return {}
 
 
 def _write_excel(output: BytesIO, sheets: dict):
@@ -43,7 +49,9 @@ def _write_excel(output: BytesIO, sheets: dict):
 
 
 def _safe_filename(file) -> str:
-    return file.name.rsplit(".", 1)[0]
+    if hasattr(file, 'name') and file.name:
+        return file.name.rsplit(".", 1)[0]
+    return "processed_file"
 
 
 # ==========================================================
@@ -204,8 +212,7 @@ def convert_datetime_column(
 ) -> Tuple[Optional[BytesIO], str]:
     """
     Converts multiple date/time columns to a user-selected format.
-    Uses errors='coerce' to preserve unparseable values as NaT, 
-    but we then fill NaT back with original strings to satisfy 'Preserve invalid values'.
+    Uses vectorized operations for speed.
     """
     if not column_names:
         return None, "No columns selected."
@@ -217,26 +224,19 @@ def convert_datetime_column(
         original_name = _safe_filename(file)
 
         def _convert(df: pd.DataFrame) -> pd.DataFrame:
+            # Standardize columns first
+            df.columns = [str(c).strip() for c in df.columns]
+            
             for col in column_names:
                 if col not in df.columns:
                     continue
                 
-                # Ensure the column is string for processing
-                col_data = df[col].astype(str)
+                # Record original values to restore them if conversion fails
+                original_values = df[col].astype(str)
                 
-                # Record original values to restore them if coersion fails
-                original_values = col_data.copy()
-                
-                # Convert to datetime safely with mixed format support
-                def _parse_cell(val):
-                    if pd.isna(val) or str(val).strip() == "":
-                        return pd.NaT
-                    try:
-                        return pd.to_datetime(val, errors="coerce", format="mixed", dayfirst=True)
-                    except:
-                        return pd.NaT
-
-                dt_series = col_data.apply(_parse_cell)
+                # Vectorized conversion
+                # Mixed format is slower but more robust
+                dt_series = pd.to_datetime(original_values, errors="coerce", dayfirst=True)
                 
                 # Format the valid dates
                 fmt = target_format
@@ -245,8 +245,8 @@ def convert_datetime_column(
                 
                 formatted_series = dt_series.dt.strftime(fmt)
                 
-                # Set unparseable values as empty string
-                df[col] = formatted_series.fillna("")
+                # Restore original values where parsing failed
+                df[col] = formatted_series.where(dt_series.notna(), original_values)
             
             return df
 

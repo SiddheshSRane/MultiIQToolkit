@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { convertColumn, exportXlsx } from "../api/client";
 import {
   FileText,
@@ -10,8 +10,11 @@ import {
   Loader2,
   Zap,
   Clipboard,
-  File
+  File as FileIcon,
+  AlertCircle
 } from "lucide-react";
+import { downloadBlob } from "../utils/download";
+import { parseApiError } from "../utils/apiError";
 
 interface ConverterProps {
   onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -21,6 +24,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [stats, setStats] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [delimiter, setDelimiter] = useState(", ");
   const [itemPrefix, setItemPrefix] = useState("");
@@ -38,7 +42,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
 
   const [loading, setLoading] = useState(false);
 
-  const getPayload = () => ({
+  const getPayload = useCallback(() => ({
     text: input,
     delimiter,
     item_prefix: itemPrefix,
@@ -52,11 +56,20 @@ export default function Converter({ onLogAction }: ConverterProps) {
     strip_quotes: stripQuotes,
     trim_items: trimItems,
     case_transform: caseTransform,
-  });
+  }), [input, delimiter, itemPrefix, itemSuffix, resultPrefix, resultSuffix, dedupe, sort, reverse, ignoreComments, stripQuotes, trimItems, caseTransform]);
 
-  const handleConvert = async () => {
-    if (!input) return;
+  const showError = useCallback((message: string) => {
+    setErrorMsg(message);
+    setTimeout(() => setErrorMsg(null), 7000);
+  }, []);
+
+  const handleConvert = useCallback(async () => {
+    if (!input.trim()) {
+      showError("Please enter some text to convert");
+      return;
+    }
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await convertColumn(getPayload());
       setOutput(res.result);
@@ -65,28 +78,67 @@ export default function Converter({ onLogAction }: ConverterProps) {
         onLogAction("Text Conversion", "conversion.txt", new Blob([res.result], { type: "text/plain" }));
       }
     } catch (e) {
-      alert("Conversion failed");
+      console.error("Conversion error:", e);
+      if (e instanceof Response) {
+        const msg = await parseApiError(e);
+        showError(msg);
+      } else {
+        showError(e instanceof Error ? e.message : "Conversion failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [input, getPayload, onLogAction, showError]);
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     setInput("");
     setOutput("");
     setStats(null);
-  };
+    setErrorMsg(null);
+  }, []);
 
-  /* 🔥 Keyboard shortcut */
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(output);
+    } catch (e) {
+      console.error("Copy failed:", e);
+      showError("Failed to copy to clipboard");
+    }
+  }, [output, showError]);
+
+  const handleDownloadTxt = useCallback(() => {
+    const blob = new Blob([output], { type: "text/plain" });
+    downloadBlob(blob, "conversion.txt");
+    if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
+  }, [output, onLogAction]);
+
+  const handleDownloadXlsx = useCallback(async () => {
+    try {
+      const blob = await exportXlsx(getPayload());
+      if (onLogAction && blob) onLogAction("Download XLSX", "conversion.xlsx", blob);
+    } catch (e) {
+      console.error("XLSX export error:", e);
+      if (e instanceof Response) {
+        const msg = await parseApiError(e);
+        showError(msg);
+      } else {
+        showError(e instanceof Error ? e.message : "Failed to export Excel file");
+      }
+    }
+  }, [getPayload, onLogAction, showError]);
+
+  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "Enter") {
+        e.preventDefault();
         handleConvert();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [input, delimiter, itemPrefix, itemSuffix, dedupe, sort, reverse, ignoreComments, stripQuotes, trimItems, caseTransform]);
+  }, [handleConvert]);
 
   return (
     <div className="app glass-card">
@@ -265,28 +317,39 @@ export default function Converter({ onLogAction }: ConverterProps) {
           />
 
           <div className="inline">
-            <button className="secondary" onClick={() => navigator.clipboard.writeText(output)}>
+            <button className="secondary" onClick={handleCopy} aria-label="Copy result to clipboard">
               <Clipboard size={18} /> Copy Result
             </button>
-            <button className="secondary" onClick={() => {
-              const blob = new Blob([output], { type: "text/plain" });
-              const link = document.createElement("a");
-              link.href = URL.createObjectURL(blob);
-              link.download = "conversion.txt";
-              link.click();
-              if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
-            }}>
-              <File size={18} /> .txt
+            <button className="secondary" onClick={handleDownloadTxt} aria-label="Download as text file">
+              <FileIcon size={18} /> .txt
             </button>
-            <button className="primary" onClick={async () => {
-              const blob = await exportXlsx(getPayload());
-              if (onLogAction && blob) onLogAction("Download XLSX", "conversion.xlsx", blob);
-            }}
+            <button
+              className="primary"
+              onClick={handleDownloadXlsx}
               style={{ marginLeft: "auto" }}
+              aria-label="Download as Excel file"
             >
               <Rocket size={18} /> Download .xlsx
             </button>
           </div>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div
+          className="section"
+          style={{
+            borderLeft: "4px solid var(--danger)",
+            background: "rgba(244, 63, 94, 0.05)",
+            marginTop: 24,
+          }}
+          role="alert"
+          aria-live="polite"
+        >
+          <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
+            <AlertCircle size={18} /> Error
+          </h4>
+          <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
         </div>
       )}
     </div>

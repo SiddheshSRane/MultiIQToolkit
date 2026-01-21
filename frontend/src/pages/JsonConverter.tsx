@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     Braces,
-    File,
+    File as FileIcon,
     Settings,
     Rocket,
     Loader2,
     Zap,
-    CheckCircle
+    CheckCircle,
+    AlertCircle
 } from "lucide-react";
+import { downloadBlob, extractFilename } from "../utils/download";
+import { parseApiError } from "../utils/apiError";
 
 interface JsonConverterProps {
     onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -18,61 +22,66 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
     const [files, setFiles] = useState<File[]>([]);
     const [loading, setLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Options
     const [orient, setOrient] = useState("records");
     const [indent, setIndent] = useState(4);
 
-    const handleApply = async () => {
+    const showError = useCallback((message: string) => {
+        setErrorMsg(message);
+        setStatusMsg(null);
+        setTimeout(() => setErrorMsg(null), 7000);
+    }, []);
+
+    const showSuccess = useCallback((message: string) => {
+        setStatusMsg(message);
+        setErrorMsg(null);
+    }, []);
+
+    const handleApply = useCallback(async () => {
         if (files.length === 0) {
-            alert("Please upload at least one file.");
+            showError("Please upload at least one file.");
             return;
         }
 
         setLoading(true);
         setStatusMsg(null);
+        setErrorMsg(null);
 
         try {
-            const fd = new FormData();
-            files.forEach((f) => fd.append("files", f));
-            fd.append("orient", orient);
-            fd.append("indent", String(indent));
+            const formData = new FormData();
+            files.forEach((f) => formData.append("files", f));
+            formData.append("orient", orient);
+            formData.append("indent", String(indent));
 
-            const res = await fetch("/api/file/convert-to-json", {
+            const res = await fetchWithAuth("/api/file/convert-to-json", {
                 method: "POST",
-                body: fd,
+                body: formData,
             });
 
             if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || "Conversion failed");
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
             }
 
             const blob = await res.blob();
             const contentDisposition = res.headers.get("content-disposition");
-            let outName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.txt`;
+            const defaultName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.txt`;
+            const outName = extractFilename(contentDisposition, defaultName);
 
-            if (contentDisposition) {
-                const match = contentDisposition.match(/filename="(.+)"/);
-                if (match && match[1]) outName = match[1];
-            }
+            downloadBlob(blob, outName);
 
-            // Download
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = outName;
-            link.click();
-
-            setStatusMsg(`Successfully converted ${files.length} file(s) to JSON (.txt).`);
+            showSuccess(`Successfully converted ${files.length} file(s) to JSON (.txt).`);
             if (onLogAction) onLogAction("Convert to JSON", outName, blob);
 
         } catch (e) {
-            console.error(e);
-            alert(e instanceof Error ? e.message : "An error occurred.");
+            console.error("JSON conversion error:", e);
+            showError(e instanceof Error ? e.message : "An error occurred during conversion.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [files, orient, indent, onLogAction, showError]);
 
     return (
         <div className="app glass-card">
@@ -85,7 +94,7 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             </p>
 
             <div className="section">
-                <h4><File size={18} /> Select Files</h4>
+                <h4><FileIcon size={18} /> Select Files</h4>
                 <FileUpload
                     files={files}
                     onFilesSelected={setFiles}
@@ -126,13 +135,51 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
 
             <div className="section flex-responsive">
                 <h4 style={{ margin: 0 }}><Rocket size={18} /> Ready?</h4>
-                <button className="primary" onClick={handleApply} disabled={loading || files.length === 0}>
-                    {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <><Zap size={18} /> Convert ${files.length} File(s)</>}
+                <button
+                    className="primary"
+                    onClick={handleApply}
+                    disabled={loading || files.length === 0}
+                    aria-label={`Convert ${files.length} file${files.length > 1 ? "s" : ""} to JSON`}
+                >
+                    {loading ? (
+                        <>
+                            <Loader2 className="animate-spin" size={18} /> Processing...
+                        </>
+                    ) : (
+                        <>
+                            <Zap size={18} /> Convert {files.length} File{files.length > 1 ? "s" : ""}
+                        </>
+                    )}
                 </button>
             </div>
 
+            {errorMsg && (
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--danger)",
+                        background: "rgba(244, 63, 94, 0.05)",
+                    }}
+                    role="alert"
+                    aria-live="polite"
+                >
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
+                        <AlertCircle size={18} /> Error
+                    </h4>
+                    <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
+                </div>
+            )}
+
             {statusMsg && (
-                <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)" }}>
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--primary)",
+                        background: "rgba(99, 102, 241, 0.05)",
+                    }}
+                    role="status"
+                    aria-live="polite"
+                >
                     <p className="desc" style={{ marginBottom: 0, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "8px" }}>
                         <CheckCircle size={18} /> {statusMsg}
                     </p>

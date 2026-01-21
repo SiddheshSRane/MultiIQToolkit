@@ -1,14 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     ClipboardList,
-    File,
+    File as FileIcon,
     BarChart,
     Settings,
     Rocket,
     Loader2,
-    Eye
+    Eye,
+    AlertCircle
 } from "lucide-react";
+import { downloadBlob } from "../utils/download";
+import { parseApiError } from "../utils/apiError";
 
 type MappingRule = {
     type: "column" | "static" | "none";
@@ -37,17 +41,26 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     const [mapping, setMapping] = useState<Record<string, MappingRule>>({});
     const [preview, setPreview] = useState<PreviewData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // UI State for filtering
     const [searchTerm, setSearchTerm] = useState("");
     const [showOnlyUnmapped, setShowOnlyUnmapped] = useState(false);
 
+    const showError = useCallback((message: string) => {
+        setErrorMsg(message);
+        setTimeout(() => setErrorMsg(null), 7000);
+    }, []);
+
     // Load Template Headers
-    const loadTemplateHeaders = async (file: File) => {
+    const loadTemplateHeaders = useCallback(async (file: File) => {
         const fd = new FormData();
         fd.append("file", file);
         try {
-            const res = await fetch("/api/file/template-headers", { method: "POST", body: fd });
+            const res = await fetchWithAuth("/api/file/template-headers", { method: "POST", body: fd });
+            if (!res.ok) {
+                throw new Error("Failed to load template headers");
+            }
             const data = await res.json();
             setTemplateHeaders(data.headers);
 
@@ -57,25 +70,41 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                 newMapping[h] = { type: "none", value: "", transform: "none", required: false };
             });
             setMapping(newMapping);
-        } catch (e) { console.error(e); }
-    };
+        } catch (e) {
+            console.error("Template headers error:", e);
+            showError(e instanceof Error ? e.message : "Failed to load template headers");
+        }
+    }, [showError]);
 
     // Load Data Headers
-    const loadDataHeaders = async (file: File) => {
+    const loadDataHeaders = useCallback(async (file: File) => {
         const fd = new FormData();
         fd.append("file", file);
         try {
-            const res = await fetch("/api/file/template-headers", { method: "POST", body: fd });
+            const res = await fetchWithAuth("/api/file/template-headers", { method: "POST", body: fd });
+            if (!res.ok) {
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
             const data = await res.json();
+
+            // Validate response structure
+            if (!data.headers || !Array.isArray(data.headers)) {
+                throw new Error("Invalid response: missing headers array");
+            }
+
             setDataHeaders(data.headers);
-        } catch (e) { console.error(e); }
-    };
+        } catch (e) {
+            console.error("Data headers error:", e);
+            showError(e instanceof Error ? e.message : "Failed to load data headers");
+        }
+    }, [showError]);
 
-    const updateMapping = (tCol: string, rule: MappingRule) => {
+    const updateMapping = useCallback((tCol: string, rule: MappingRule) => {
         setMapping((prev: Record<string, MappingRule>) => ({ ...prev, [tCol]: rule }));
-    };
+    }, []);
 
-    const fetchPreview = async () => {
+    const fetchPreview = useCallback(async () => {
         if (!dataFile || templateHeaders.length === 0) return;
         setLoading(true);
         const fd = new FormData();
@@ -84,15 +113,19 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
         fd.append("mapping_json", JSON.stringify(mapping));
 
         try {
-            const res = await fetch("/api/file/template-preview", { method: "POST", body: fd });
+            const res = await fetchWithAuth("/api/file/template-preview", { method: "POST", body: fd });
+            if (!res.ok) {
+                throw new Error("Failed to fetch preview");
+            }
             const data = await res.json();
             setPreview(data);
         } catch (e) {
-            console.error(e);
+            console.error("Preview error:", e);
+            showError(e instanceof Error ? e.message : "Failed to fetch preview");
         } finally {
             setLoading(false);
         }
-    };
+    }, [dataFile, templateHeaders, mapping, showError]);
 
     // Auto-preview useEffect with debounce
     useEffect(() => {
@@ -105,34 +138,54 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
         return () => clearTimeout(timer);
     }, [mapping, dataFile, templateHeaders]);
 
-    const handleDownload = async () => {
+    const handleDownload = useCallback(async () => {
         if (!dataFile || templateHeaders.length === 0) return;
 
         // Validation: check for required columns that are unmapped
         const missingRequired = Object.entries(mapping).filter(([_, rule]) => rule.required && rule.type === "none");
         if (missingRequired.length > 0) {
-            alert(`The following required columns are unmapped: ${missingRequired.map(([h]) => h).join(", ")}`);
+            const missingNames = missingRequired.map(([h]) => h).join(", ");
+            showError(`The following required columns are unmapped: ${missingNames}`);
             return;
         }
 
         setLoading(true);
+        setErrorMsg(null);
         const fd = new FormData();
         fd.append("data_file", dataFile);
         fd.append("template_headers", JSON.stringify(templateHeaders));
         fd.append("mapping_json", JSON.stringify(mapping));
 
         try {
-            const res = await fetch("/api/file/template-map", { method: "POST", body: fd });
+            const res = await fetchWithAuth("/api/file/template-map", { method: "POST", body: fd });
+            if (!res.ok) {
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
+
+            // Validate response has content
+            const contentType = res.headers.get("content-type");
+            if (!contentType) {
+                throw new Error("Server response missing content type");
+            }
+
             const blob = await res.blob();
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            const outName = `${templateFile?.name.split('.')[0] || 'template'}_mapped_${Date.now()}.xlsx`;
-            link.download = outName;
-            link.click();
+
+            // Validate blob is not empty
+            if (blob.size === 0) {
+                throw new Error("Server returned empty file");
+            }
+
+            const outName = `${templateFile?.name.replace(/\.[^/.]+$/, "") || 'template'}_mapped_${Date.now()}.xlsx`;
+            downloadBlob(blob, outName);
             if (onLogAction) onLogAction("Template Mapping", outName, blob);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
+        } catch (e) {
+            console.error("Download error:", e);
+            showError(e instanceof Error ? e.message : "Failed to generate mapped file");
+        } finally {
+            setLoading(false);
+        }
+    }, [dataFile, templateHeaders, mapping, templateFile, onLogAction, showError]);
 
     return (
         <div className="app glass-card">
@@ -146,7 +199,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
             <div className="form-grid">
                 <div className="section">
-                    <h4><File size={18} /> 1. Template Schema</h4>
+                    <h4><FileIcon size={18} /> 1. Template Schema</h4>
                     <FileUpload
                         files={templateFile ? [templateFile] : []}
                         onFilesSelected={(files) => {
@@ -285,6 +338,23 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                         {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <><Rocket size={18} /> Generate & Download Excel</>}
                     </button>
                     {loading && <p className="desc" style={{ margin: 0, fontSize: "12px" }}>Updating preview...</p>}
+                </div>
+            )}
+
+            {errorMsg && (
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--danger)",
+                        background: "rgba(244, 63, 94, 0.05)",
+                    }}
+                    role="alert"
+                    aria-live="polite"
+                >
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
+                        <AlertCircle size={18} /> Error
+                    </h4>
+                    <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
                 </div>
             )}
 

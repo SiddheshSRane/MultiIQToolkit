@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     Calendar,
@@ -6,7 +7,7 @@ import {
     Files,
     Download,
     BarChart2,
-    File,
+    File as FileIcon,
     Settings,
     Rocket,
     Loader2,
@@ -14,8 +15,11 @@ import {
     Clipboard,
     Search,
     CheckCircle,
-    Sparkles
+    Sparkles,
+    AlertCircle
 } from "lucide-react";
+import { downloadBlob, extractFilename } from "../utils/download";
+import { parseApiError } from "../utils/apiError";
 
 interface SampleData {
     headers: string[];
@@ -58,27 +62,31 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
     const [loading, setLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    const getTargetFormat = () => format === "custom" ? customFormat : format;
+    const getTargetFormat = useCallback(() => format === "custom" ? customFormat : format, [format, customFormat]);
 
-    /* =========================
-       Fetch column preview
-       ========================= */
-    const fetchPreview = async (f: File, sheetName?: string | null) => {
+    const showError = useCallback((message: string) => {
+        setErrorMsg(message);
+        setStatusMsg(null);
+        setTimeout(() => setErrorMsg(null), 7000);
+    }, []);
+
+    // Fetch column preview
+    const fetchPreview = useCallback(async (f: File, sheetName?: string | null) => {
         try {
             const fd = new FormData();
             fd.append("file", f);
             if (sheetName) fd.append("sheet_name", sheetName);
 
-            const res = await fetch("/api/file/preview-columns", {
+            const res = await fetchWithAuth("/api/file/preview-columns", {
                 method: "POST",
                 body: fd,
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.detail || "Failed to preview file");
-                return;
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
             }
 
             const data = await res.json();
@@ -88,31 +96,36 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             setColumns(data.columns);
             setSample(data.sample || null);
         } catch (e) {
-            console.error(e);
+            console.error("Preview error:", e);
+            showError(e instanceof Error ? e.message : "Failed to preview file");
         }
-    };
+    }, [showError]);
 
-    const handleFileChange = async (selectedFiles: File[]) => {
+    const handleFileChange = useCallback(async (selectedFiles: File[]) => {
         setFiles(selectedFiles);
+        setSelectedCols([]);
+        setErrorMsg(null);
         if (selectedFiles[0]) {
             await fetchPreview(selectedFiles[0]);
         }
-    };
+    }, [fetchPreview]);
 
-    const toggleColumn = (col: string) => {
+    const toggleColumn = useCallback((col: string) => {
         setSelectedCols(prev =>
             prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]
         );
-    };
+    }, []);
 
-    /* =========================
-       Paste Mode Logic
-       ========================= */
-    const handleConvertPaste = async () => {
-        if (!input) return;
+    // Paste Mode Logic
+    const handleConvertPaste = useCallback(async () => {
+        if (!input.trim()) {
+            showError("Please enter some dates to convert");
+            return;
+        }
         setLoading(true);
+        setErrorMsg(null);
         try {
-            const res = await fetch("/api/convert/datetime", {
+            const res = await fetchWithAuth("/api/convert/datetime", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -121,7 +134,10 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 }),
             });
 
-            if (!res.ok) throw new Error("Conversion failed");
+            if (!res.ok) {
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
 
             const data = await res.json();
             setOutput(data.result);
@@ -131,16 +147,16 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 onLogAction("DateTime Conversion", "dates.txt", new Blob([data.result], { type: "text/plain" }));
             }
         } catch (e) {
-            console.error(e);
-            alert("Conversion failed");
+            console.error("Conversion error:", e);
+            showError(e instanceof Error ? e.message : "Conversion failed");
         } finally {
             setLoading(false);
         }
-    };
+    }, [input, getTargetFormat, onLogAction, showError]);
 
-    const handleDownloadPasteXlsx = async () => {
+    const handleDownloadPasteXlsx = useCallback(async () => {
         try {
-            const res = await fetch("/api/convert/datetime/export-xlsx", {
+            const res = await fetchWithAuth("/api/convert/datetime/export-xlsx", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -149,32 +165,37 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 }),
             });
 
-            if (!res.ok) throw new Error("Excel export failed");
+            if (!res.ok) {
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
 
             const blob = await res.blob();
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "dates_conversion.xlsx";
-            link.click();
+
+            // Validate blob is not empty
+            if (blob.size === 0) {
+                throw new Error("Server returned empty file");
+            }
+
+            downloadBlob(blob, "dates_conversion.xlsx");
 
             if (onLogAction) onLogAction("Download Dates Excel", "dates_conversion.xlsx", blob);
         } catch (e) {
-            console.error(e);
-            alert("Excel export failed");
+            console.error("Excel export error:", e);
+            showError(e instanceof Error ? e.message : "Excel export failed");
         }
-    };
+    }, [input, getTargetFormat, onLogAction, showError]);
 
-    /* =========================
-       File Mode Logic
-       ========================= */
-    const handleConvertFile = async () => {
+    // File Mode Logic
+    const handleConvertFile = useCallback(async () => {
         if (files.length === 0 || selectedCols.length === 0) {
-            alert("Please select files and at least one column.");
+            showError("Please select files and at least one column.");
             return;
         }
 
         setLoading(true);
         setStatusMsg(null);
+        setErrorMsg(null);
 
         try {
             const fd = new FormData();
@@ -184,40 +205,34 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             if (sheet) fd.append("sheet_name", sheet);
             fd.append("all_sheets", String(allSheets));
 
-            const res = await fetch("/api/file/convert-datetime", {
+            const res = await fetchWithAuth("/api/file/convert-datetime", {
                 method: "POST",
                 body: fd,
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || "Error during processing");
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
             }
 
             const blob = await res.blob();
             const contentDisposition = res.headers.get("content-disposition");
-            let outName = files.length > 1 ? "standardized_dates_batch.zip" : files[0].name;
+            const defaultName = files.length > 1 ? "standardized_dates_batch.zip" : files[0].name;
+            const outName = extractFilename(contentDisposition, defaultName);
 
-            if (contentDisposition) {
-                const match = contentDisposition.match(/filename="(.+)"/);
-                if (match && match[1]) outName = match[1];
-            }
-
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = outName;
-            link.click();
+            downloadBlob(blob, outName);
 
             setStatusMsg(`Successfully processed ${files.length} file(s). Result: ${outName}`);
             if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
         } catch (e: any) {
-            alert(e.message);
+            console.error("File conversion error:", e);
+            showError(e.message || "Error during processing");
         } finally {
             setLoading(false);
         }
-    };
+    }, [files, selectedCols, getTargetFormat, sheet, allSheets, onLogAction, showError]);
 
-    const clearAll = () => {
+    const clearAll = useCallback(() => {
         setInput("");
         setOutput("");
         setStats(null);
@@ -225,7 +240,8 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         setColumns([]);
         setSelectedCols([]);
         setStatusMsg(null);
-    };
+        setErrorMsg(null);
+    }, []);
 
     /* Keyboard shortcut */
     useEffect(() => {
@@ -296,7 +312,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
                     <div className="section">
                         <h4>
-                            <File size={18} /> Select Files
+                            <FileIcon size={18} /> Select Files
                         </h4>
                         <FileUpload
                             files={files}
@@ -426,13 +442,10 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                         </button>
                         <button className="secondary" onClick={() => {
                             const blob = new Blob([output], { type: "text/plain" });
-                            const link = document.createElement("a");
-                            link.href = URL.createObjectURL(blob);
-                            link.download = "dates_standardized.txt";
-                            link.click();
+                            downloadBlob(blob, "dates_standardized.txt");
                             if (onLogAction) onLogAction("Download Dates TXT", "dates_standardized.txt", blob);
                         }}>
-                            <File size={18} /> .txt
+                            <FileIcon size={18} /> .txt
                         </button>
                         <button className="primary" onClick={handleDownloadPasteXlsx} style={{ marginLeft: "auto" }}>
                             <Rocket size={18} /> Download .xlsx
@@ -469,8 +482,35 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 </div>
             )}
 
+            {errorMsg && (
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--danger)",
+                        background: "rgba(244, 63, 94, 0.05)",
+                        marginTop: 24,
+                    }}
+                    role="alert"
+                    aria-live="polite"
+                >
+                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
+                        <AlertCircle size={18} /> Error
+                    </h4>
+                    <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
+                </div>
+            )}
+
             {statusMsg && (
-                <div className="section" style={{ borderLeft: "4px solid var(--primary)", background: "rgba(99, 102, 241, 0.05)", marginTop: 24 }}>
+                <div
+                    className="section"
+                    style={{
+                        borderLeft: "4px solid var(--primary)",
+                        background: "rgba(99, 102, 241, 0.05)",
+                        marginTop: 24,
+                    }}
+                    role="status"
+                    aria-live="polite"
+                >
                     <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
                         <CheckCircle size={18} /> Success
                     </h4>
