@@ -466,19 +466,19 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                         <Search size={18} /> Data Preview (Top 5 rows of {files[0]?.name})
                     </h4>
                     <div className="table-container" style={{ marginTop: 12 }}>
-                        <table style={{ borderCollapse: "collapse" }}>
+                        <table>
                             <thead>
-                                <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                                <tr>
                                     {sample.headers.map((h, i) => (
-                                        <th key={i} style={{ fontSize: "12px", borderBottom: "1px solid var(--glass-border)" }}>{h}</th>
+                                        <th key={i}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {sample.rows.map((row, i) => (
-                                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                                    <tr key={i}>
                                         {row.map((cell, j) => (
-                                            <td key={j} style={{ fontSize: "12px", opacity: 0.8 }}>{cell}</td>
+                                            <td key={j}>{cell}</td>
                                         ))}
                                     </tr>
                                 ))}
