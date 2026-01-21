@@ -191,7 +191,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     if (mode === "remove" && selected.length === 0) return ERROR_MESSAGES.NO_COLUMNS_SELECTED;
     if (mode === "rename") {
       const activeRenames = Object.fromEntries(
-        Object.entries(renameMap).filter(([_, v]) => v && v.trim() !== "")
+        Object.entries(renameMap).filter(([, v]) => v && v.trim() !== "")
       );
       if (Object.keys(activeRenames).length === 0) return ERROR_MESSAGES.NO_RENAME_ENTRIES;
     }
@@ -227,7 +227,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       } else if (mode === "rename") {
         endpoint = API_ENDPOINTS.RENAME;
         const activeRenames = Object.fromEntries(
-          Object.entries(renameMap).filter(([_, v]) => v && v.trim() !== "")
+          Object.entries(renameMap).filter(([, v]) => v && v.trim() !== "")
         );
         formData.append("mapping", JSON.stringify(activeRenames));
       } else {

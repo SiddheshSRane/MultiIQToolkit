@@ -136,13 +136,13 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
         }, 800); // 800ms debounce
 
         return () => clearTimeout(timer);
-    }, [mapping, dataFile, templateHeaders]);
+    }, [fetchPreview, dataFile, templateHeaders]);
 
     const handleDownload = useCallback(async () => {
         if (!dataFile || templateHeaders.length === 0) return;
 
         // Validation: check for required columns that are unmapped
-        const missingRequired = Object.entries(mapping).filter(([_, rule]) => rule.required && rule.type === "none");
+        const missingRequired = Object.entries(mapping).filter(([, rule]) => rule.required && rule.type === "none");
         if (missingRequired.length > 0) {
             const missingNames = missingRequired.map(([h]) => h).join(", ");
             showError(`The following required columns are unmapped: ${missingNames}`);
@@ -285,7 +285,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                                                 <select
                                                     style={{ padding: "4px 8px" }}
                                                     value={mapping[tCol]?.type || "none"}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], type: e.target.value as any, value: "" })}
+                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], type: e.target.value as "column" | "static" | "none", value: "" })}
                                                 >
                                                     <option value="none">Unmapped (Blank)</option>
                                                     <option value="column">Source Column</option>
@@ -315,7 +315,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                                                 <select
                                                     disabled={mapping[tCol]?.type !== "column"}
                                                     value={mapping[tCol]?.transform || "none"}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], transform: e.target.value as any })}
+                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], transform: e.target.value as "none" | "trim" | "uppercase" | "lowercase" | "titlecase" })}
                                                 >
                                                     <option value="none">None</option>
                                                     <option value="trim">Trim</option>

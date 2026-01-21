@@ -20,10 +20,16 @@ interface ConverterProps {
   onLogAction?: (action: string, filename: string, blob: Blob) => void;
 }
 
+interface ConversionStats {
+  total_lines: number;
+  non_empty: number;
+  unique: number;
+}
+
 export default function Converter({ onLogAction }: ConverterProps) {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<ConversionStats | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [delimiter, setDelimiter] = useState(", ");

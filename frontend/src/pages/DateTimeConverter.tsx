@@ -26,6 +26,12 @@ interface SampleData {
     rows: string[][];
 }
 
+interface ConversionStats {
+    total_lines: number;
+    non_empty: number;
+    unique: number;
+}
+
 interface DateTimeConverterProps {
     onLogAction?: (action: string, filename: string, blob: Blob) => void;
 }
@@ -46,7 +52,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
     // Paste Mode State
     const [input, setInput] = useState("");
     const [output, setOutput] = useState("");
-    const [stats, setStats] = useState<any>(null);
+    const [stats, setStats] = useState<ConversionStats | null>(null);
 
     // File Mode State
     const [files, setFiles] = useState<File[]>([]);
@@ -224,9 +230,9 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
             setStatusMsg(`Successfully processed ${files.length} file(s). Result: ${outName}`);
             if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
-        } catch (e: any) {
+        } catch (e) {
             console.error("File conversion error:", e);
-            showError(e.message || "Error during processing");
+            showError(e instanceof Error ? e.message : "Error during processing");
         } finally {
             setLoading(false);
         }
@@ -253,7 +259,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         };
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
-    }, [input, format, customFormat, mode]);
+    }, [mode, handleConvertPaste]);
 
     return (
         <div className="app glass-card">

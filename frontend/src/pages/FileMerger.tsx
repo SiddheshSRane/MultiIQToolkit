@@ -40,7 +40,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
     // New Options
     const [trimWhitespace, setTrimWhitespace] = useState(false);
-    const [casing, setCasing] = useState<"none" | "upper" | "lower">("none");
+    const [casing, setCasing] = useState<"none" | "upper" | "lower" | "title">("none");
     const [includeSource, setIncludeSource] = useState(true);
 
     // Join Options
@@ -239,7 +239,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                             <div className="form-grid" style={{ background: "rgba(255,255,255,0.03)", padding: "20px", borderRadius: "16px", border: "1px solid var(--glass-border)" }}>
                                 <div className="input-group">
                                     <label style={{ display: "block", marginBottom: 8, fontSize: "13px", fontWeight: 600 }}>Join Type</label>
-                                    <select value={joinType} onChange={(e) => setJoinType(e.target.value as any)}>
+                                    <select value={joinType} onChange={(e) => setJoinType(e.target.value as "left" | "inner" | "right" | "outer")}>
                                         <option value="left">Left Join (Keep all from File 1)</option>
                                         <option value="inner">Inner Join (Common IDs only)</option>
                                         <option value="right">Right Join (Keep all from File 2)</option>
@@ -312,7 +312,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
                                     <span style={{ fontSize: "13px", fontWeight: 500 }}>Casing:</span>
                                     <select
                                         value={casing}
-                                        onChange={(e) => setCasing(e.target.value as any)}
+                                        onChange={(e) => setCasing(e.target.value as "none" | "upper" | "lower" | "title")}
                                         style={{ width: "auto", minWidth: "120px" }}
                                     >
                                         <option value="none">Original</option>

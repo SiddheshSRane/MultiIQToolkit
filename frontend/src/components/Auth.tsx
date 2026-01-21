@@ -36,7 +36,7 @@ export default function Auth() {
         if (error) setError(error.message);
         else setSuccess('Reset link sent!');
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
