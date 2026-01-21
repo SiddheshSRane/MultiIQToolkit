@@ -57,3 +57,8 @@ Thumbs.db
 *.csv
 merged_*
 cleaned_*
+
+# Environment files
+.env
+frontend/.env
+**/.env
