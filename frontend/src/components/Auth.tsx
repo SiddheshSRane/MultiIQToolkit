@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Lock, User, LogIn, UserPlus, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, User, LogIn, UserPlus, ArrowRight, AlertCircle, CheckCircle, Component } from 'lucide-react';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -50,219 +50,255 @@ export default function Auth() {
   }, [mode, email, password, fullName, signIn, signUp, resetPassword]);
 
   return (
-    <div className="app glass-card" style={{ maxWidth: '500px', margin: '40px auto' }}>
-      <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-        <User className="text-primary" />
-        {mode === 'signin' && 'Sign In'}
-        {mode === 'signup' && 'Create Account'}
-        {mode === 'forgot' && 'Reset Password'}
-      </h2>
-      <p className="desc" style={{ marginBottom: '24px' }}>
-        {mode === 'signin' && 'Sign in to save your activity and access your history'}
-        {mode === 'signup' && 'Create an account to get started'}
-        {mode === 'forgot' && 'Enter your email to receive a password reset link'}
-      </p>
-
-      {error && (
-        <div
-          className="section"
-          style={{
-            borderLeft: '4px solid var(--danger)',
-            background: 'rgba(244, 63, 94, 0.05)',
-            marginBottom: '20px',
-          }}
-          role="alert"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)' }}>
-            <AlertCircle size={18} />
-            <span style={{ fontSize: '14px' }}>{error}</span>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '80vh',
+      padding: '20px',
+    }}>
+      <div
+        className="glass-card"
+        style={{
+          width: '100%',
+          maxWidth: '440px',
+          padding: '40px',
+          borderRadius: '24px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'rgba(17, 25, 40, 0.75)',
+          backdropFilter: 'blur(16px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary, #8b5cf6) 100%)',
+            marginBottom: '16px',
+            boxShadow: '0 4px 6px -1px rgba(var(--primary-rgb, 99, 102, 241), 0.3)'
+          }}>
+            <Component size={24} color="white" />
           </div>
-        </div>
-      )}
-
-      {success && (
-        <div
-          className="section"
-          style={{
-            borderLeft: '4px solid var(--primary)',
-            background: 'rgba(99, 102, 241, 0.05)',
-            marginBottom: '20px',
-          }}
-          role="status"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
-            <CheckCircle size={18} />
-            <span style={{ fontSize: '14px' }}>{success}</span>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        {mode === 'signup' && (
-          <div className="input-group" style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <User size={16} />
-              Full Name (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="John Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              aria-label="Full name"
-            />
-          </div>
-        )}
-
-        <div className="input-group" style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Mail size={16} />
-            Email
-          </label>
-          <input
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            aria-label="Email address"
-          />
-        </div>
-
-        {mode !== 'forgot' && (
-          <div className="input-group" style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Lock size={16} />
-              Password
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              aria-label="Password"
-            />
-            {mode === 'signin' && (
-              <button
-                type="button"
-                className="text-btn"
-                onClick={() => setMode('forgot')}
-                style={{
-                  fontSize: '12px',
-                  background: 'transparent',
-                  color: 'var(--primary)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '4px 0',
-                  marginTop: '4px',
-                }}
-              >
-                Forgot password?
-              </button>
-            )}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          className="primary"
-          disabled={loading || !email || (mode !== 'forgot' && !password)}
-          style={{ width: '100%', marginBottom: '16px' }}
-        >
-          {loading ? (
-            <>Processing...</>
-          ) : (
-            <>
-              {mode === 'signin' && (
-                <>
-                  <LogIn size={18} /> Sign In
-                </>
-              )}
-              {mode === 'signup' && (
-                <>
-                  <UserPlus size={18} /> Create Account
-                </>
-              )}
-              {mode === 'forgot' && (
-                <>
-                  <ArrowRight size={18} /> Send Reset Link
-                </>
-              )}
-            </>
-          )}
-        </button>
-      </form>
-
-      <div style={{ textAlign: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--glass-border)' }}>
-        {mode === 'signin' && (
-          <p className="desc" style={{ margin: 0, fontSize: '13px' }}>
-            Don't have an account?{' '}
-            <button
-              type="button"
-              className="text-btn"
-              onClick={() => {
-                setMode('signup');
-                setError(null);
-                setSuccess(null);
-              }}
-              style={{
-                background: 'transparent',
-                color: 'var(--primary)',
-                border: 'none',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              Sign up
-            </button>
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: 700,
+            marginBottom: '8px',
+            background: 'linear-gradient(to right, #fff, #a5b4fc)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            {mode === 'signin' && 'Welcome Back'}
+            {mode === 'signup' && 'Create Account'}
+            {mode === 'forgot' && 'Reset Password'}
+          </h2>
+          <p className="desc" style={{ fontSize: '14px', opacity: 0.7 }}>
+            {mode === 'signin' && 'Enter your credentials to access your workspace'}
+            {mode === 'signup' && 'Get started with your free account today'}
+            {mode === 'forgot' && 'We\'ll send you a link to reset your password'}
           </p>
-        )}
-        {mode === 'signup' && (
-          <p className="desc" style={{ margin: 0, fontSize: '13px' }}>
-            Already have an account?{' '}
-            <button
-              type="button"
-              className="text-btn"
-              onClick={() => {
-                setMode('signin');
-                setError(null);
-                setSuccess(null);
-              }}
-              style={{
-                background: 'transparent',
-                color: 'var(--primary)',
-                border: 'none',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              Sign in
-            </button>
-          </p>
-        )}
-        {mode === 'forgot' && (
-          <button
-            type="button"
-            className="text-btn"
-            onClick={() => {
-              setMode('signin');
-              setError(null);
-              setSuccess(null);
-            }}
+        </div>
+
+        {error && (
+          <div
             style={{
-              background: 'transparent',
-              color: 'var(--primary)',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'start',
+              gap: '12px',
+            }}
+            role="alert"
+          >
+            <AlertCircle size={18} className="text-red-400" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span style={{ fontSize: '13px', color: '#fca5a5', lineHeight: '1.4' }}>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: '8px',
+              background: 'rgba(34, 197, 94, 0.1)',
+              border: '1px solid rgba(34, 197, 94, 0.2)',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'start',
+              gap: '12px',
+            }}
+            role="status"
+          >
+            <CheckCircle size={18} className="text-green-400" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span style={{ fontSize: '13px', color: '#86efac', lineHeight: '1.4' }}>{success}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          {mode === 'signup' && (
+            <div className="input-group" style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, marginBottom: '8px', display: 'block', color: '#e2e8f0' }}>Full Name</label>
+              <div style={{ position: 'relative' }}>
+                <User size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 40px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    color: 'white',
+                    fontSize: '14px',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="input-group" style={{ marginBottom: '20px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, marginBottom: '8px', display: 'block', color: '#e2e8f0' }}>Email Address</label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px 12px 10px 40px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  color: 'white',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+          </div>
+
+          {mode !== 'forgot' && (
+            <div className="input-group" style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0' }}>Password</label>
+                {mode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => setMode('forgot')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary)',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 40px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    color: 'white',
+                    fontSize: '14px',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !email || (mode !== 'forgot' && !password)}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '8px',
+              background: 'var(--primary)',
+              color: 'white',
               border: 'none',
+              fontSize: '14px',
+              fontWeight: 600,
               cursor: 'pointer',
-              textDecoration: 'underline',
-              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'transform 0.1s ease',
+              opacity: (loading || !email || (mode !== 'forgot' && !password)) ? 0.7 : 1,
             }}
           >
-            Back to sign in
+            {loading ? (
+              <span>Processing...</span>
+            ) : (
+              <>
+                {mode === 'signin' && <><LogIn size={18} /> Sign In</>}
+                {mode === 'signup' && <><UserPlus size={18} /> Create Account</>}
+                {mode === 'forgot' && <><ArrowRight size={18} /> Send Reset Link</>}
+              </>
+            )}
           </button>
-        )}
+        </form>
+
+        <div style={{ marginTop: '32px', textAlign: 'center' }}>
+          {mode === 'signin' && (
+            <p style={{ fontSize: '14px', color: '#94a3b8' }}>
+              Don't have an account?{' '}
+              <button
+                onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Sign up
+              </button>
+            </p>
+          )}
+          {mode === 'signup' && (
+            <p style={{ fontSize: '14px', color: '#94a3b8' }}>
+              Already have an account?{' '}
+              <button
+                onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Sign in
+              </button>
+            </p>
+          )}
+          {mode === 'forgot' && (
+            <button
+              onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto', cursor: 'pointer' }}
+            >
+              <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to Sign In
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
