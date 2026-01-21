@@ -88,15 +88,119 @@ body {
   margin-top: 24px;
 }
 
-h2 {
-  margin-top: 0;
-  font-size: 28px;
+/* ==========================================================================
+     Header & Branding
+     ========================================================================== */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--primary);
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   background: linear-gradient(to right, var(--text-main), var(--primary));
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 6px;
+  padding-left: 16px;
+  border-radius: 99px;
+  border: 1px solid var(--border-color);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  background: var(--bg-app);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.user-email {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.logout-btn {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  padding: 8px !important;
+  border-radius: 50% !important;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+  border: 1px solid transparent !important;
+}
+
+.logout-btn:hover {
+  background: #fee2e2 !important;
+  /* light red bg */
+  color: #ef4444 !important;
+  /* red text */
+  transform: none !important;
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 24px;
+  font-weight: 700;
 }
 
 h4 {
@@ -263,38 +367,43 @@ tr:last-child td {
 }
 
 /* Navigation Tabs */
+/* Navigation Tabs Refined */
 .nav-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
   padding: 6px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.6);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 100%;
   flex-wrap: wrap;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
 }
 
 .nav-tabs button {
   background: transparent;
   color: var(--text-muted);
-  border-radius: 12px;
-  padding: 10px 20px;
+  border-radius: 10px;
+  padding: 10px 16px;
   border: none !important;
   font-weight: 600;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .nav-tabs button:hover {
   color: var(--text-main);
-  background: var(--bg-app);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .nav-tabs button.active {
   color: white;
   background: var(--primary);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 12px -2px var(--primary-glow);
 }
 
 .form-grid {
@@ -540,9 +649,25 @@ td {
 @media (max-width: 768px) {
   .layout-root {
     margin: 0;
+    padding: 12px;
+  }
+
+  /* Header Branding Mobile */
+  .app-header {
+    flex-direction: column;
+    gap: 16px;
     padding: 16px;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .brand {
+    justify-content: center;
+  }
+
+  .user-profile {
+    justify-content: space-between;
     width: 100%;
-    max-width: 100%;
   }
 
   /* Header Branding */

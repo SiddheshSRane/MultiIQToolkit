@@ -81,26 +81,32 @@ export default function App() {
 
   return (
     <div className="layout-root">
-      <div className="flex-responsive" style={{ marginBottom: 24 }}>
-        <h2 style={{ display: "flex", alignItems: "center", gap: "12px", margin: 0 }}>
-          <Gem className="text-primary" size={28} />
-          DataRefinery
-        </h2>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--text-muted)", fontSize: "14px" }}>
-            <User size={16} />
-            <span>{user.email}</span>
+      <header className="app-header">
+        <div className="brand">
+          <div className="brand-icon">
+            <Gem size={24} strokeWidth={2.5} />
           </div>
+          <h1>DataRefinery</h1>
+        </div>
+
+        <div className="user-profile">
+          <div className="user-info">
+            <div className="user-avatar">
+              <User size={16} />
+            </div>
+            <span className="user-email">{user.email}</span>
+          </div>
+          <div className="divider" />
           <button
-            className="secondary"
+            className="logout-btn"
             onClick={handleSignOut}
-            style={{ padding: "8px 16px", fontSize: "13px" }}
             aria-label="Sign out"
+            title="Sign out"
           >
-            <LogOut size={16} /> Sign Out
+            <LogOut size={16} />
           </button>
         </div>
-      </div>
+      </header>
 
       <nav className="nav-tabs" role="tablist" aria-label="Main navigation">
         {navItems.map((item) => {
