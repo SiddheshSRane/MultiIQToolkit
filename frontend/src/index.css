@@ -213,10 +213,12 @@ button.primary {
   display: flex;
   gap: 8px;
   margin-bottom: 40px;
-  padding: 6px;
-  background: rgba(0, 0, 0, 0.2);
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
-  width: fit-content;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .nav-tabs button {
