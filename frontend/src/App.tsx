@@ -133,6 +133,9 @@ export default function App() {
       <div className="app glass-card" style={{ marginTop: 48 }}>
         <ActivityLog logs={logs} onClear={clearLogs} />
       </div>
+      <div style={{ textAlign: "center", marginTop: 24, color: "var(--text-muted)", fontSize: "12px", opacity: 0.7 }}>
+        v1.0.1 (Light Mode)
+      </div>
     </div>
   );
 }
