@@ -489,6 +489,8 @@ p.desc {
 
 /* Inputs & Controls */
 input[type="text"],
+input[type="password"],
+input[type="email"],
 input[type="file"],
 select,
 textarea {
@@ -509,6 +511,8 @@ textarea {
 }
 
 [data-theme='dark'] input[type="text"],
+[data-theme='dark'] input[type="password"],
+[data-theme='dark'] input[type="email"],
 [data-theme='dark'] select {
   background: #111827;
   /* Darker, flatter gray-900 */

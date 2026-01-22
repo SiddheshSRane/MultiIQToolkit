@@ -1,7 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, Gem, Mail, Lock, User, Loader2, Zap } from 'lucide-react';
+import { Eye, EyeOff, Gem, Loader2, Zap } from 'lucide-react';
 
 type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -26,18 +26,30 @@ export default function Auth() {
     try {
       if (mode === 'signin') {
         const { error } = await signIn(email, password);
-        if (error) setError(error.message);
+        if (error) {
+          setError(error.message);
+          console.error('Sign In Error:', error);
+        }
       } else if (mode === 'signup') {
         const { error } = await signUp(email, password, fullName);
-        if (error) setError(error.message);
-        else setSuccess('Account created! Check your email.');
+        if (error) {
+          setError(error.message);
+          console.error('Sign Up Error:', error);
+        } else {
+          setSuccess('Account created! Check your email.');
+        }
       } else if (mode === 'forgot') {
         const { error } = await resetPassword(email);
-        if (error) setError(error.message);
-        else setSuccess('Reset link sent!');
+        if (error) {
+          setError(error.message);
+          console.error('Reset Password Error:', error);
+        } else {
+          setSuccess('Reset link sent!');
+        }
       }
-    } catch {
-      setError('An unexpected error occurred');
+    } catch (err) {
+      setError('A system-level error occurred. Please check console.');
+      console.error('Unexpected Auth Error:', err);
     } finally {
       setLoading(false);
     }
@@ -88,25 +100,45 @@ export default function Auth() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {mode === 'signup' && (
             <div className="input-group">
-              <label><User size={14} style={{ marginRight: 8 }} /> Full name</label>
+              <label>Full Name</label>
               <input type="text" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             </div>
           )}
 
           <div className="input-group">
-            <label><Mail size={14} style={{ marginRight: 8 }} /> Corporate Email</label>
+            <label>Corporate Email</label>
             <input type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
 
           {mode !== 'forgot' && (
             <div className="input-group">
-              <label><Lock size={14} style={{ marginRight: 8 }} /> Secure Password</label>
-              <div style={{ position: 'relative' }}>
-                <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <label>Secure Password</label>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ paddingRight: '48px' }}
+                />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
