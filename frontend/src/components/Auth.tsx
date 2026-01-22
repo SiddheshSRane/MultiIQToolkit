@@ -27,7 +27,11 @@ export default function Auth() {
       if (mode === 'signin') {
         const { error } = await signIn(email, password);
         if (error) {
-          setError(error.message);
+          let msg = error.message;
+          if (msg.toLowerCase().includes('email not confirmed')) {
+            msg = "Email not confirmed. Please check your inbox for the activation link.";
+          }
+          setError(msg);
           console.error('Sign In Error:', error);
         }
       } else if (mode === 'signup') {
@@ -36,7 +40,7 @@ export default function Auth() {
           setError(error.message);
           console.error('Sign Up Error:', error);
         } else {
-          setSuccess('Account created! Check your email.');
+          setSuccess('Account created! Please check your email to confirm your access.');
         }
       } else if (mode === 'forgot') {
         const { error } = await resetPassword(email);
@@ -44,11 +48,11 @@ export default function Auth() {
           setError(error.message);
           console.error('Reset Password Error:', error);
         } else {
-          setSuccess('Reset link sent!');
+          setSuccess('Security reset link sent! Check your inbox.');
         }
       }
     } catch (err) {
-      setError('A system-level error occurred. Please check console.');
+      setError('A secure gateway error occurred. Please try again or check console.');
       console.error('Unexpected Auth Error:', err);
     } finally {
       setLoading(false);
@@ -64,14 +68,7 @@ export default function Auth() {
       background: 'var(--bg-app)',
       padding: 24
     }}>
-      <div className="hub-card" style={{
-        maxWidth: 480,
-        width: '100%',
-        padding: 48,
-        textAlign: 'center',
-        cursor: 'default',
-        transform: 'none'
-      }}>
+      <div className="auth-card">
         <div className="brand" style={{ justifyContent: 'center', marginBottom: 32 }}>
           <div className="brand-logo indigo-glow">
             <Gem size={32} />
@@ -106,8 +103,16 @@ export default function Auth() {
           )}
 
           <div className="input-group">
-            <label>Corporate Email</label>
-            <input type="email" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label htmlFor="email">Corporate Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="name@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
           </div>
 
           {mode !== 'forgot' && (
@@ -115,12 +120,14 @@ export default function Auth() {
               <label>Secure Password</label>
               <div style={{ position: 'relative', width: '100%' }}>
                 <input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   style={{ paddingRight: '48px' }}
+                  autoComplete={mode === 'signin' ? "current-password" : "new-password"}
                 />
                 <button
                   type="button"

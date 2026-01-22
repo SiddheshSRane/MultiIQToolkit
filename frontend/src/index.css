@@ -60,6 +60,20 @@
   }
 }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 @keyframes slideUpFade {
   from {
     opacity: 0;
@@ -508,6 +522,8 @@ textarea {
   font-weight: 500;
   transition: all 0.2s ease;
   box-shadow: none;
+  position: relative;
+  z-index: 1;
 }
 
 [data-theme='dark'] input[type="text"],
@@ -527,6 +543,8 @@ textarea {
 }
 
 input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
 input[type="file"]:focus,
 select:focus,
 textarea:focus {
@@ -1447,12 +1465,24 @@ td {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .hub-card:hover {
   transform: translateY(-8px);
   border-color: var(--primary);
   box-shadow: 0 30px 60px -15px rgba(99, 102, 241, 0.15);
+}
+
+.auth-card {
+  background: var(--card-bg);
+  padding: 48px;
+  border-radius: 32px;
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 480px;
+  box-shadow: var(--card-shadow);
+  text-align: center;
 }
 
 .hub-card .icon-box {
