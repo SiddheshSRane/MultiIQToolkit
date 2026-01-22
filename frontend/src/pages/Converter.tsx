@@ -1,20 +1,23 @@
+
 import { useEffect, useState, useCallback } from "react";
-import { convertColumn, exportXlsx } from "../api/client";
+import { convertColumn } from "../api/client";
 import {
-  FileText,
   Sparkles,
-  Download,
+  Type,
   Wrench,
-  Settings,
-  Rocket,
-  Loader2,
   Zap,
   Clipboard,
-  File as FileIcon,
-  AlertCircle
+  Loader2,
+  Trash2,
+  ListFilter,
+  ArrowDownWideNarrow,
+  Braces,
+  Quote,
+  Hash,
+  Scissors,
+  RefreshCcw
 } from "lucide-react";
-import { downloadBlob } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
+import { useNotifications } from "../contexts/NotificationContext";
 
 interface ConverterProps {
   onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -27,114 +30,94 @@ interface ConversionStats {
 }
 
 export default function Converter({ onLogAction }: ConverterProps) {
+  const { notify } = useNotifications();
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [stats, setStats] = useState<ConversionStats | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Core Formatting Parameters
   const [delimiter, setDelimiter] = useState(", ");
   const [itemPrefix, setItemPrefix] = useState("");
   const [itemSuffix, setItemSuffix] = useState("");
   const [resultPrefix, setResultPrefix] = useState("");
   const [resultSuffix, setResultSuffix] = useState("");
 
+  // Logic Gates
   const [dedupe, setDedupe] = useState(false);
   const [sort, setSort] = useState(false);
   const [reverse, setReverse] = useState(false);
   const [ignoreComments, setIgnoreComments] = useState(true);
-  const [stripQuotes, setStripQuotes] = useState(false);
   const [trimItems, setTrimItems] = useState(true);
+  const [stripQuotes, setStripQuotes] = useState(false);
   const [caseTransform, setCaseTransform] = useState("none");
 
   const [loading, setLoading] = useState(false);
 
-  const getPayload = useCallback(() => ({
-    text: input,
-    delimiter,
-    item_prefix: itemPrefix,
-    item_suffix: itemSuffix,
-    result_prefix: resultPrefix,
-    result_suffix: resultSuffix,
-    remove_duplicates: dedupe,
-    sort_items: sort,
-    reverse_items: reverse,
-    ignore_comments: ignoreComments,
-    strip_quotes: stripQuotes,
-    trim_items: trimItems,
-    case_transform: caseTransform,
-  }), [input, delimiter, itemPrefix, itemSuffix, resultPrefix, resultSuffix, dedupe, sort, reverse, ignoreComments, stripQuotes, trimItems, caseTransform]);
-
-  const showError = useCallback((message: string) => {
-    setErrorMsg(message);
-    setTimeout(() => setErrorMsg(null), 7000);
-  }, []);
-
   const handleConvert = useCallback(async () => {
     if (!input.trim()) {
-      showError("Please enter some text to convert");
+      notify('error', 'Ready State Empty', "Please enter some text to refine.");
       return;
     }
     setLoading(true);
-    setErrorMsg(null);
+    notify('loading', 'Refining Stream', 'Applying structural logic to your dataset...');
+
+    const payload = {
+      text: input,
+      delimiter,
+      item_prefix: itemPrefix,
+      item_suffix: itemSuffix,
+      result_prefix: resultPrefix,
+      result_suffix: resultSuffix,
+      remove_duplicates: dedupe,
+      sort_items: sort,
+      reverse_items: reverse,
+      ignore_comments: ignoreComments,
+      strip_quotes: stripQuotes,
+      trim_items: trimItems,
+      case_transform: caseTransform,
+    };
+
     try {
-      const res = await convertColumn(getPayload());
+      const res = await convertColumn(payload);
       setOutput(res.result);
       setStats(res.stats);
+      notify('success', 'Refinement Complete', 'Your list has been perfectly formatted.');
       if (onLogAction) {
-        onLogAction("Text Conversion", "conversion.txt", new Blob([res.result], { type: "text/plain" }));
+        onLogAction("Text Transformation", "refined_list.txt", new Blob([res.result], { type: "text/plain" }));
       }
     } catch (e) {
       console.error("Conversion error:", e);
-      if (e instanceof Response) {
-        const msg = await parseApiError(e);
-        showError(msg);
-      } else {
-        showError(e instanceof Error ? e.message : "Conversion failed. Please try again.");
-      }
+      notify('error', 'Refinery Blocked', e instanceof Error ? e.message : "An unexpected block occurred.");
     } finally {
       setLoading(false);
     }
-  }, [input, getPayload, onLogAction, showError]);
+  }, [input, delimiter, itemPrefix, itemSuffix, resultPrefix, resultSuffix, dedupe, sort, reverse, ignoreComments, stripQuotes, trimItems, caseTransform, onLogAction, notify]);
 
   const clearAll = useCallback(() => {
     setInput("");
     setOutput("");
     setStats(null);
-    setErrorMsg(null);
-  }, []);
-
+    notify('info', 'Terminal Purged', 'Workspace reset to prime state.');
+  }, [notify]);
 
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(output);
+      notify('success', 'Copied to Clipboard', 'The refined payload is ready to use.');
     } catch (e) {
-      console.error("Copy failed:", e);
-      showError("Failed to copy to clipboard");
+      notify('error', 'Clipboard Error', "System prevented clipboard access.");
     }
-  }, [output, showError]);
+  }, [output, notify]);
 
-  const handleDownloadTxt = useCallback(() => {
-    const blob = new Blob([output], { type: "text/plain" });
-    downloadBlob(blob, "conversion.txt");
-    if (onLogAction) onLogAction("Download TXT", "conversion.txt", blob);
-  }, [output, onLogAction]);
+  const applyPreset = (d: string, ip: string, is: string, rp: string = "", rs: string = "") => {
+    setDelimiter(d);
+    setItemPrefix(ip);
+    setItemSuffix(is);
+    setResultPrefix(rp);
+    setResultSuffix(rs);
+    notify('success', 'Preset Activated', 'Formatting parameters updated.');
+  };
 
-  const handleDownloadXlsx = useCallback(async () => {
-    try {
-      const blob = await exportXlsx(getPayload());
-      if (onLogAction && blob) onLogAction("Download XLSX", "conversion.xlsx", blob);
-    } catch (e) {
-      console.error("XLSX export error:", e);
-      if (e instanceof Response) {
-        const msg = await parseApiError(e);
-        showError(msg);
-      } else {
-        showError(e instanceof Error ? e.message : "Failed to export Excel file");
-      }
-    }
-  }, [getPayload, onLogAction, showError]);
-
-  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "Enter") {
@@ -147,217 +130,166 @@ export default function Converter({ onLogAction }: ConverterProps) {
   }, [handleConvert]);
 
   return (
-    <div className="app glass-card">
-      <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <FileText className="text-primary" />
-        Text Transformer
-      </h2>
-      <p className="desc">
-        CLEAN, FAST COLUMN & TEXT TRANSFORMATION. PASTE VALUES BELOW.
-      </p>
-
-      {/* --- PRESETS --- */}
-      <div className="section" style={{ marginBottom: 32 }}>
-        <h4><Sparkles size={18} /> Quick Presets</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
-          <button className="secondary" onClick={() => {
-            setDelimiter(", "); setItemPrefix(""); setItemSuffix(""); setResultPrefix(""); setResultSuffix("");
-          }}>📊 Comma CSV</button>
-          <button className="secondary" onClick={() => {
-            setDelimiter(", "); setItemPrefix("'"); setItemSuffix("'"); setResultPrefix(""); setResultSuffix("");
-          }}>✨ Quoted CSV</button>
-          <button className="secondary" onClick={() => {
-            setDelimiter("\\n"); setItemPrefix(""); setItemSuffix(""); setResultPrefix(""); setResultSuffix("");
-          }}>📋 Newline List</button>
+    <div className="app">
+      {/* Top Banner: Presets */}
+      <div className="section">
+        <h4><Sparkles size={18} /> High-Speed Logical Presets</h4>
+        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <button className="checkbox" onClick={() => applyPreset(", ", "", "")} style={{ justifyContent: 'center' }}>📊 CSV List</button>
+          <button className="checkbox" onClick={() => applyPreset(", ", "'", "'")} style={{ justifyContent: 'center' }}>✨ SQL Quotes</button>
+          <button className="checkbox" onClick={() => applyPreset("\\n", "", "")} style={{ justifyContent: 'center' }}>📋 Newline</button>
+          <button className="checkbox" onClick={() => applyPreset(", ", "", "", "[", "]")} style={{ justifyContent: 'center' }}>🛡️ JSON Array</button>
+          <button className="checkbox" onClick={() => applyPreset(" | ", "", "")} style={{ justifyContent: 'center' }}>⚡ Pipe Delimited</button>
         </div>
       </div>
 
-      <div className="flex-responsive" style={{ marginBottom: 12 }}>
-        <h4 style={{ margin: 0 }}>
-          <Download size={18} /> Input Values
-        </h4>
-        <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
+      {/* Main Workspace: Side-by-Side Dual Pane */}
+      <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', alignItems: 'stretch' }}>
+        <div className="section" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="flex-responsive" style={{ marginBottom: 12 }}>
+            <h4 style={{ margin: 0 }}><Type size={18} /> Source Stream</h4>
+            <button className="secondary" onClick={clearAll} style={{ padding: '6px 12px', fontSize: 11 }}>
+              <Trash2 size={12} /> Purge Input
+            </button>
+          </div>
+          <textarea
+            placeholder="Paste your source list here... (Ctrl + Enter to trigger)"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            style={{ flex: 1, minHeight: '350px', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}
+          />
+          {stats && (
+            <div className="stats" style={{ marginTop: 16, padding: '12px 20px', borderRadius: 14 }}>
+              <span style={{ marginRight: 16 }}><strong>Rows Detected:</strong> {stats.total_lines}</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span style={{ marginLeft: 16 }}><strong>Unique Keys:</strong> {stats.unique}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="section" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="flex-responsive" style={{ marginBottom: 12 }}>
+            <h4 style={{ margin: 0 }}><Clipboard size={18} /> Refined Result</h4>
+            <button className="secondary" onClick={handleCopy} disabled={!output} style={{ padding: '6px 12px', fontSize: 11 }}>
+              <Clipboard size={12} /> Copy Output
+            </button>
+          </div>
+          <textarea
+            readOnly
+            placeholder="Refined data will materialize here..."
+            value={output}
+            style={{
+              flex: 1,
+              minHeight: '350px',
+              background: 'var(--input-bg)',
+              border: '1px solid var(--primary)',
+              color: 'var(--primary)',
+              fontWeight: 700,
+              fontFamily: 'monospace',
+              fontSize: 13,
+              lineHeight: 1.6
+            }}
+          />
+        </div>
       </div>
 
-      <textarea
-        rows={8}
-        placeholder="Paste one value per line (Ctrl + Enter to convert)"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-      />
-      <p className="desc" style={{ fontSize: "11px", textAlign: "right", marginTop: "8px", opacity: 0.7 }}>
-        ⌨️ Press <b>Ctrl + Enter</b> to convert instantly
-      </p>
+      {/* Advanced Configuration Architecture */}
+      <div className="section" style={{ borderTop: '4px solid var(--primary)' }}>
+        <div style={{ marginBottom: 32, borderBottom: '1px solid var(--border-color)', paddingBottom: 16 }}>
+          <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Wrench size={20} className="text-primary" /> Logic & Schema Infrastructure
+          </h4>
+          <p className="desc" style={{ margin: '8px 0 0 0', fontSize: 13, marginBottom: 0 }}>Precision-tune your data flow with industrial-grade formatting controls.</p>
+        </div>
 
-      <div className="stats" style={{ marginBottom: 24, padding: "12px 20px" }}>
-        <strong>Lines:</strong> {stats?.total_lines || 0} <span style={{ opacity: 0.3, margin: "0 8px" }}>|</span>{" "}
-        <strong>Non-empty:</strong> {stats?.non_empty || 0} <span style={{ opacity: 0.3, margin: "0 8px" }}>|</span>{" "}
-        <strong>Unique:</strong> {stats?.unique || 0}
-      </div>
+        <div className="form-grid" style={{ gridTemplateColumns: '150px 1fr 1fr', gap: '32px', alignItems: 'start' }}>
 
-      <div className="section">
-        <h4>
-          <Wrench size={18} /> Formatting
-        </h4>
-        <div className="form-grid">
+          {/* Column 1: Core Delimiter */}
           <div className="input-group">
             <label>Delimiter</label>
             <input
-              type="text"
               placeholder="e.g. , "
               value={delimiter}
               onChange={(e) => setDelimiter(e.target.value)}
-            />
-            <p className="desc" style={{ fontSize: "11px", marginTop: 4 }}>
-              💡 Use <b>\n</b> for new lines or <b>,</b> for commas.
-            </p>
-          </div>
-          <div className="input-group">
-            <label>Item Prefix</label>
-            <input
-              type="text"
-              placeholder="e.g. '"
-              value={itemPrefix}
-              onChange={(e) => setItemPrefix(e.target.value)}
+              style={{ fontFamily: 'JetBrains Mono, monospace', textAlign: 'center' }}
             />
           </div>
-          <div className="input-group">
-            <label>Item Suffix</label>
-            <input
-              type="text"
-              placeholder="e.g. '"
-              value={itemSuffix}
-              onChange={(e) => setItemSuffix(e.target.value)}
-            />
+
+          {/* Column 2: Item Lifecycle */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="input-group">
+              <label>Item Prefix</label>
+              <input placeholder="Prefix..." value={itemPrefix} onChange={(e) => setItemPrefix(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>Item Suffix</label>
+              <input placeholder="Suffix..." value={itemSuffix} onChange={(e) => setItemSuffix(e.target.value)} />
+            </div>
           </div>
-          <div className="input-group">
-            <label>Result Prefix</label>
-            <input
-              type="text"
-              placeholder="e.g. ["
-              value={resultPrefix}
-              onChange={(e) => setResultPrefix(e.target.value)}
-            />
-          </div>
-          <div className="input-group">
-            <label>Result Suffix</label>
-            <input
-              type="text"
-              placeholder="e.g. ]"
-              value={resultSuffix}
-              onChange={(e) => setResultSuffix(e.target.value)}
-            />
+
+          {/* Column 3: Payload Wrap */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="input-group">
+              <label>Result Prefix</label>
+              <input placeholder="Start..." value={resultPrefix} onChange={(e) => setResultPrefix(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>Result Suffix</label>
+              <input placeholder="End..." value={resultSuffix} onChange={(e) => setResultSuffix(e.target.value)} />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="section">
-        <h4>
-          <Settings size={18} /> Options
-        </h4>
-        <div className="options-grid">
-          <label className="checkbox">
-            <input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} />
-            Remove duplicates
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" checked={sort} onChange={(e) => setSort(e.target.checked)} />
-            Sort items
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" checked={reverse} onChange={(e) => setReverse(e.target.checked)} />
-            Reverse list
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" checked={ignoreComments} onChange={(e) => setIgnoreComments(e.target.checked)} />
-            Ignore comments
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" checked={stripQuotes} onChange={(e) => setStripQuotes(e.target.checked)} />
-            Strip quotes
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" checked={trimItems} onChange={(e) => setTrimItems(e.target.checked)} />
-            Trim whitespace
-          </label>
+        {/* Casing & Secondary Logic */}
+        <div className="form-grid" style={{ marginTop: 32, gridTemplateColumns: 'minmax(200px, 300px) 1fr' }}>
           <div className="input-group">
-            <label>Casing</label>
-            <select
-              value={caseTransform}
-              onChange={(e) => setCaseTransform(e.target.value)}
-              style={{ width: "auto", minWidth: "120px" }}
-            >
-              <option value="none">Original</option>
-              <option value="upper">UPPERCASE</option>
-              <option value="lower">lowercase</option>
-              <option value="title">Title Case</option>
+            <label>Aesthetic Casing</label>
+            <select value={caseTransform} onChange={(e) => setCaseTransform(e.target.value)}>
+              <option value="none">Original Data (No Change)</option>
+              <option value="upper">GLOBAL UPPERCASE</option>
+              <option value="lower">global lowercase</option>
+              <option value="title">Global Title Case</option>
             </select>
           </div>
         </div>
+
+        <div className="checkbox-grid" style={{
+          marginTop: 40,
+          paddingTop: 32,
+          borderTop: '1px solid var(--border-color)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+          gap: 16
+        }}>
+          <label className="checkbox"><input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} /><ListFilter size={18} /> Unique Keys</label>
+          <label className="checkbox"><input type="checkbox" checked={sort} onChange={(e) => setSort(e.target.checked)} /><ArrowDownWideNarrow size={18} /> Sort A-Z</label>
+          <label className="checkbox"><input type="checkbox" checked={reverse} onChange={(e) => setReverse(e.target.checked)} /><RefreshCcw size={18} /> Reverse Flow</label>
+          <label className="checkbox"><input type="checkbox" checked={ignoreComments} onChange={(e) => setIgnoreComments(e.target.checked)} /><Hash size={18} /> Skip Comments</label>
+          <label className="checkbox"><input type="checkbox" checked={trimItems} onChange={(e) => setTrimItems(e.target.checked)} /><Scissors size={18} /> Clean Space</label>
+          <label className="checkbox"><input type="checkbox" checked={stripQuotes} onChange={(e) => setStripQuotes(e.target.checked)} /><Quote size={18} /> Strip Quotes</label>
+        </div>
       </div>
 
-      <div className="section flex-responsive">
-        <h4 style={{ margin: 0 }}>
-          <Rocket size={18} /> Ready to convert?
-        </h4>
-        <button onClick={handleConvert} disabled={!input || loading} className="primary">
-          {loading ? (
-            <><Loader2 className="animate-spin" size={18} /> Converting...</>
-          ) : (
-            <><Zap size={18} /> Apply Conversion</>
-          )}
+      {/* Activation Hub */}
+      <div className="flex-responsive" style={{ margin: "40px 0", justifyContent: 'center' }}>
+        <button className="primary" onClick={handleConvert} disabled={loading} style={{ padding: "20px 100px", fontSize: "18px", borderRadius: '24px' }}>
+          {loading ? <Loader2 className="animate-spin" /> : <><Zap /> Execute Industrial Refinement</>}
         </button>
       </div>
 
-      {output && (
-        <div className="section">
-          <h4>
-            <Sparkles size={18} /> Converted Results
-          </h4>
-          <textarea
-            rows={8}
-            readOnly
-            value={output}
-            placeholder="Result"
-            style={{ marginBottom: 20 }}
-          />
-
-          <div className="inline">
-            <button className="secondary" onClick={handleCopy} aria-label="Copy result to clipboard">
-              <Clipboard size={18} /> Copy Result
-            </button>
-            <button className="secondary" onClick={handleDownloadTxt} aria-label="Download as text file">
-              <FileIcon size={18} /> .txt
-            </button>
-            <button
-              className="primary"
-              onClick={handleDownloadXlsx}
-              style={{ marginLeft: "auto" }}
-              aria-label="Download as Excel file"
-            >
-              <Rocket size={18} /> Download .xlsx
-            </button>
-          </div>
+      {/* Insight Section */}
+      <div className="tool-help-section" style={{ background: 'var(--primary-glow)' }}>
+        <div className="tool-help-icon">
+          <Braces size={24} />
         </div>
-      )}
-
-      {errorMsg && (
-        <div
-          className="section"
-          style={{
-            borderLeft: "4px solid var(--danger)",
-            background: "rgba(244, 63, 94, 0.05)",
-            marginTop: 24,
-          }}
-          role="alert"
-          aria-live="polite"
-        >
-          <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
-            <AlertCircle size={18} /> Error
-          </h4>
-          <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
+        <div className="tool-help-content">
+          <h5>Architectural Insight: Encapsulation</h5>
+          <p>By using the <strong>Stream Encapsulation</strong> (Start/End), you can instantly wrap your data for target environments—like <code>[ ]</code> for JSON arrays or <code>( )</code> for SQL IN clauses. The refinery handles the trailing delimiter perfectly every time.</p>
         </div>
-      )}
+      </div>
     </div>
   );
 }
+
+
+

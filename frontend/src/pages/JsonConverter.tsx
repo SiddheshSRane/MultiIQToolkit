@@ -1,15 +1,14 @@
+
 import { useState, useCallback } from "react";
 import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
+import { useNotifications } from "../contexts/NotificationContext";
 import {
-    Braces,
     File as FileIcon,
     Settings,
-    Rocket,
     Loader2,
     Zap,
-    CheckCircle,
-    AlertCircle
+    Braces
 } from "lucide-react";
 import { downloadBlob, extractFilename } from "../utils/download";
 import { parseApiError } from "../utils/apiError";
@@ -19,35 +18,22 @@ interface JsonConverterProps {
 }
 
 export default function JsonConverter({ onLogAction }: JsonConverterProps) {
+    const { notify } = useNotifications();
     const [files, setFiles] = useState<File[]>([]);
     const [loading, setLoading] = useState(false);
-    const [statusMsg, setStatusMsg] = useState<string | null>(null);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Options
     const [orient, setOrient] = useState("records");
     const [indent, setIndent] = useState(4);
 
-    const showError = useCallback((message: string) => {
-        setErrorMsg(message);
-        setStatusMsg(null);
-        setTimeout(() => setErrorMsg(null), 7000);
-    }, []);
-
-    const showSuccess = useCallback((message: string) => {
-        setStatusMsg(message);
-        setErrorMsg(null);
-    }, []);
-
     const handleApply = useCallback(async () => {
         if (files.length === 0) {
-            showError("Please upload at least one file.");
+            notify('error', 'Selection Required', "Please upload at least one file.");
             return;
         }
 
         setLoading(true);
-        setStatusMsg(null);
-        setErrorMsg(null);
+        notify('loading', 'Refining Data', 'Converting your files to structured JSON...');
 
         try {
             const formData = new FormData();
@@ -67,43 +53,31 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
 
             const blob = await res.blob();
             const contentDisposition = res.headers.get("content-disposition");
-            const defaultName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.txt`;
+            const defaultName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.json`;
             const outName = extractFilename(contentDisposition, defaultName);
 
             downloadBlob(blob, outName);
-
-            showSuccess(`Successfully converted ${files.length} file(s) to JSON (.txt).`);
+            notify('success', 'Refinement Complete', `Successfully converted ${files.length} file(s) into JSON.`);
             if (onLogAction) onLogAction("Convert to JSON", outName, blob);
 
         } catch (e) {
             console.error("JSON conversion error:", e);
-            showError(e instanceof Error ? e.message : "An error occurred during conversion.");
+            notify('error', 'Conversion Failed', e instanceof Error ? e.message : "An error occurred.");
         } finally {
             setLoading(false);
         }
-    }, [files, orient, indent, onLogAction, showError]);
+    }, [files, orient, indent, onLogAction, notify]);
 
     return (
-        <div className="app glass-card">
-            <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <Braces className="text-primary" />
-                JSON Converter
-            </h2>
-            <p className="desc">
-                Convert your Excel or CSV files into structured JSON format. Supports batch conversion and multiple JSON orientations.
-            </p>
-
+        <div className="app">
             <div className="section">
-                <h4><FileIcon size={18} /> Select Files</h4>
-                <FileUpload
-                    files={files}
-                    onFilesSelected={setFiles}
-                />
+                <h4><FileIcon size={18} /> Source Files</h4>
+                <FileUpload files={files} onFilesSelected={setFiles} />
             </div>
 
             {files.length > 0 && (
                 <div className="section">
-                    <h4><Settings size={18} /> Configuration</h4>
+                    <h4><Settings size={18} /> Architecture Configuration</h4>
                     <div className="form-grid">
                         <div className="input-group">
                             <label>JSON Structure (Orient)</label>
@@ -112,79 +86,45 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
                                 <option value="index">Keyed by Index</option>
                                 <option value="columns">Keyed by Column</option>
                                 <option value="values">Pure Array of Arrays</option>
-                                <option value="table">Table Schema format</option>
+                                <option value="table">Table Schema Layout</option>
                             </select>
-                            <p className="desc" style={{ fontSize: "11px", marginTop: 4 }}>
-                                {orient === "records" && "Example: [{ 'col': 'val' }, ... ]"}
-                                {orient === "index" && "Example: { '0': { 'col': 'val' }, ... }"}
-                                {orient === "values" && "Example: [[ 'val1', 'val2' ], ... ]"}
-                            </p>
                         </div>
 
                         <div className="input-group">
-                            <label>Indentation Spaces</label>
+                            <label>Beautification / Indent</label>
                             <select value={indent} onChange={(e) => setIndent(Number(e.target.value))}>
-                                <option value={2}>2 Spaces</option>
-                                <option value={4}>4 Spaces (Default)</option>
-                                <option value={0}>Minified (No Spaces)</option>
+                                <option value={2}>2 Spaces (Compact)</option>
+                                <option value={4}>4 Spaces (Readable)</option>
+                                <option value={0}>Minified (Production)</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div className="tool-help-section" style={{ marginTop: 24, padding: 24 }}>
+                        <div className="tool-help-icon" style={{ width: 40, height: 40 }}><Braces size={20} /></div>
+                        <div className="tool-help-content">
+                            <h5>Design Insight</h5>
+                            <p style={{ fontSize: 13 }}>
+                                {orient === "records" && "Records mode creates a standard JSON array suitable for most web applications and databases."}
+                                {orient === "index" && "Index mode is ideal if you need to reference specific rows by their original sequence IDs."}
+                                {orient === "values" && "Values mode provides the smallest file size by omitting column names from every row."}
+                            </p>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="section flex-responsive">
-                <h4 style={{ margin: 0 }}><Rocket size={18} /> Ready?</h4>
+            <div className="flex-responsive" style={{ margin: "40px 0", justifyContent: 'center' }}>
                 <button
                     className="primary"
                     onClick={handleApply}
                     disabled={loading || files.length === 0}
-                    aria-label={`Convert ${files.length} file${files.length > 1 ? "s" : ""} to JSON`}
+                    style={{ padding: '16px 64px', fontSize: 16 }}
                 >
-                    {loading ? (
-                        <>
-                            <Loader2 className="animate-spin" size={18} /> Processing...
-                        </>
-                    ) : (
-                        <>
-                            <Zap size={18} /> Convert {files.length} File{files.length > 1 ? "s" : ""}
-                        </>
-                    )}
+                    {loading ? <Loader2 className="animate-spin" /> : <Zap />}
+                    Refine to JSON
                 </button>
             </div>
-
-            {errorMsg && (
-                <div
-                    className="section"
-                    style={{
-                        borderLeft: "4px solid var(--danger)",
-                        background: "rgba(244, 63, 94, 0.05)",
-                    }}
-                    role="alert"
-                    aria-live="polite"
-                >
-                    <h4 style={{ color: "var(--text-main)", textTransform: "none", marginBottom: 8 }}>
-                        <AlertCircle size={18} /> Error
-                    </h4>
-                    <p className="desc" style={{ marginBottom: 0, color: "var(--danger)" }}>{errorMsg}</p>
-                </div>
-            )}
-
-            {statusMsg && (
-                <div
-                    className="section"
-                    style={{
-                        borderLeft: "4px solid var(--primary)",
-                        background: "rgba(99, 102, 241, 0.05)",
-                    }}
-                    role="status"
-                    aria-live="polite"
-                >
-                    <p className="desc" style={{ marginBottom: 0, color: "var(--text-main)", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <CheckCircle size={18} /> {statusMsg}
-                    </p>
-                </div>
-            )}
         </div>
     );
 }
