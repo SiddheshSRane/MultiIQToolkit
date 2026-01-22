@@ -32,12 +32,12 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
     const [sample, setSample] = useState<SampleData | null>(null);
 
     const [strategy, setStrategy] = useState<"intersection" | "union">("intersection");
-    const [caseInsensitive, setCaseInsensitive] = useState(false);
+    const [caseInsensitive] = useState(false);
     const [removeDuplicates, setRemoveDuplicates] = useState(false);
     const [allSheets, setAllSheets] = useState(false);
 
     const [trimWhitespace, setTrimWhitespace] = useState(false);
-    const [casing, setCasing] = useState<"none" | "upper" | "lower" | "title">("none");
+    const [casing] = useState<"none" | "upper" | "lower" | "title">("none");
     const [includeSource, setIncludeSource] = useState(true);
 
     const [mergeMode, setMergeMode] = useState<"stack" | "join">("stack");

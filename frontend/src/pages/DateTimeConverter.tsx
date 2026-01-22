@@ -55,9 +55,9 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
     const [columns, setColumns] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
     const [sheet, setSheet] = useState<string | null>(null);
-    const [sheets, setSheets] = useState<string[] | null>(null);
-    const [sample, setSample] = useState<SampleData | null>(null);
-    const [allSheets, setAllSheets] = useState(false);
+    const [, setSheets] = useState<string[] | null>(null);
+    const [, setSample] = useState<SampleData | null>(null);
+    const [allSheets] = useState(false);
 
     const [format, setFormat] = useState<string>("%Y-%m-%d");
     const [customFormat, setCustomFormat] = useState<string>("");

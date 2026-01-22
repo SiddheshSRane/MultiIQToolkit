@@ -55,9 +55,8 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const [renameMap, setRenameMap] = useState<Record<string, string>>({});
   const [replacementValue, setReplacementValue] = useState("");
   const [results, setResults] = useState<ProcessResult[]>([]);
-  const [sheets, setSheets] = useState<string[] | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
-  const [allSheets, setAllSheets] = useState(false);
+  const [allSheets] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Fetch column preview
@@ -79,7 +78,6 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
       const data = await response.json();
       setColumns(data.columns);
-      setSheets(data.sheets);
       setSample(data.sample || null);
       if (!sheetName && data.sheets?.[0]) setSheet(data.sheets[0]);
       return data;
@@ -96,7 +94,6 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     } else {
       setColumns([]);
       setSample(null);
-      setSheets(null);
       setSheet(null);
     }
   }, [files, sheet, fetchPreview]);
@@ -129,7 +126,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     }
 
     setLoading(true);
-    const loadingId = notify('loading', 'Processing', `Applying ${mode} operation to ${files.length} file(s)...`);
+    notify('loading', 'Processing', `Applying ${mode} operation to ${files.length} file(s)...`);
 
     try {
       const endpoint = API_ENDPOINTS[mode.toUpperCase() as keyof typeof API_ENDPOINTS];
