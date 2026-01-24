@@ -66,6 +66,10 @@ async def log_requests(request: Request, call_next):
     )
     return response
 
+from fastapi.middleware.gzip import GZipMiddleware
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -169,25 +173,30 @@ async def log_activity(user_id: str, action: str, filename: str, file_url: Optio
 # API HELPERS
 # =====================
 
-def read_df(buffer: io.BytesIO, filename: str, nrows: Optional[int] = None, sheet_name: Optional[str] = None) -> pd.DataFrame:
+def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Optional[str] = None) -> pd.DataFrame:
     """
     Standardizes reading a DataFrame from CSV or Excel with robustness.
+    Accepts file_obj which can be bytes buffer or file-like object.
     """
     is_csv = filename.lower().endswith(".csv")
+    
+    # Ensure we are at the start of the file
+    if hasattr(file_obj, 'seek'):
+        file_obj.seek(0)
+        
     if is_csv:
         try:
-            buffer.seek(0)
-            return pd.read_csv(buffer, nrows=nrows, encoding='utf-8-sig', engine='c')
+            return pd.read_csv(file_obj, nrows=nrows, encoding='utf-8-sig', engine='c')
         except Exception:
             try:
-                buffer.seek(0)
-                return pd.read_csv(buffer, nrows=nrows, encoding='latin1', engine='c')
+                if hasattr(file_obj, 'seek'): file_obj.seek(0)
+                return pd.read_csv(file_obj, nrows=nrows, encoding='latin1', engine='c')
             except Exception:
-                buffer.seek(0)
-                return pd.read_csv(buffer, nrows=nrows)
+                if hasattr(file_obj, 'seek'): file_obj.seek(0)
+                return pd.read_csv(file_obj, nrows=nrows)
     else:
         try:
-            xls = pd.ExcelFile(buffer)
+            xls = pd.ExcelFile(file_obj)
             active_sheet = sheet_name or xls.sheet_names[0]
             return pd.read_excel(xls, sheet_name=active_sheet, nrows=nrows, dtype=str)
         except Exception as e:
@@ -477,17 +486,20 @@ async def preview_columns(
     sheet_name: str = Form(None),
 ):
     try:
-        contents = await file.read()
-        buffer = io.BytesIO(contents)
+        # Optimization: Pass file.file directly to pandas to avoid reading whole file into memory
+        # pandas functions can handle SpooledTemporaryFile
         
-        df = read_df(buffer, file.filename, nrows=5, sheet_name=sheet_name)
+        # Note: We do not need to await file.read() here which saves memory for large files
+        
+        df = read_df(file.file, file.filename, nrows=5, sheet_name=sheet_name)
         
         # If it was an Excel file, we might want to return sheet list too
         sheets = None
         if not file.filename.lower().endswith(".csv"):
             try:
-                buffer.seek(0)
-                xls = pd.ExcelFile(buffer)
+                # Seek back to start for sheet reading
+                file.file.seek(0)
+                xls = pd.ExcelFile(file.file)
                 sheets = xls.sheet_names
             except:
                 pass
@@ -713,10 +725,9 @@ async def convert_to_json_api(
 @app.post("/api/file/template-headers")
 async def get_template_headers_api(file: UploadFile = File(...)):
     try:
-        contents = await file.read()
-        buffer = io.BytesIO(contents)
+        # Optimization: Use streaming file directly
         is_csv = file.filename.lower().endswith(".csv")
-        headers = get_excel_headers(buffer, is_csv=is_csv)
+        headers = get_excel_headers(file.file, is_csv=is_csv)
         return {"headers": headers}
     except Exception as e:
         logger.error(f"Error getting headers: {e}")
@@ -777,6 +788,36 @@ async def map_template_api(
     except Exception as e:
         logger.error(f"Error in template mapping: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# =====================
+# DIFF CHECKER TOOL
+# =====================
+
+class DiffRequest(BaseModel):
+    text1: str
+    text2: str
+    ignore_whitespace: bool = False
+    ignore_case: bool = False
+
+@app.post("/api/diff/compare")
+async def compare_text_api(payload: DiffRequest, user=Depends(get_current_user)):
+    from tools.diff_tool import compute_diff
+    
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(
+        executor, 
+        lambda: compute_diff(
+            payload.text1, 
+            payload.text2, 
+            ignore_whitespace=payload.ignore_whitespace,
+            ignore_case=payload.ignore_case
+        )
+    )
+    
+    if user:
+        await log_activity(user.id, "Diff Comparison", "text_compare")
+        
+    return result
 
 if __name__ == "__main__":
 

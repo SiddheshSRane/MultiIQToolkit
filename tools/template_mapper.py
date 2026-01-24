@@ -5,18 +5,22 @@ from typing import Dict, List, Optional, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
-def get_excel_headers(file_buffer: io.BytesIO, is_csv: bool = False) -> List[str]:
-    """Reads headers from an Excel or CSV file."""
+def get_excel_headers(file_obj, is_csv: bool = False) -> List[str]:
+    """Reads headers from an Excel or CSV file-like object."""
     try:
-        file_buffer.seek(0)
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+            
         if is_csv:
             try:
-                df = pd.read_csv(file_buffer, nrows=0, encoding='utf-8-sig')
+                # Use engine='c' for speed
+                df = pd.read_csv(file_obj, nrows=0, encoding='utf-8-sig', engine='c')
             except Exception:
-                file_buffer.seek(0)
-                df = pd.read_csv(file_buffer, nrows=0, encoding='latin1')
+                if hasattr(file_obj, 'seek'): file_obj.seek(0)
+                df = pd.read_csv(file_obj, nrows=0, encoding='latin1', engine='c')
         else:
-            df = pd.read_excel(file_buffer, nrows=0)
+            df = pd.read_excel(file_obj, nrows=0)
+            
         return [str(c) for c in df.columns]
     except Exception as e:
         logger.error(f"Error reading headers: {e}")

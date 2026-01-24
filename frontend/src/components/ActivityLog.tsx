@@ -8,7 +8,7 @@ export type LogEntry = {
     timestamp: string;
     action: string;
     filename: string;
-    blob: Blob;
+    blob?: Blob;
 };
 
 interface ActivityLogProps {
@@ -20,6 +20,10 @@ export default function ActivityLog({ logs, onClear }: ActivityLogProps) {
     const { notify } = useNotifications();
 
     const download = useCallback((log: LogEntry) => {
+        if (!log.blob) {
+            notify('info', 'Export Unavailable', 'Processed files are only downloadable in this session.');
+            return;
+        }
         const url = URL.createObjectURL(log.blob);
         const link = document.createElement("a");
         link.href = url;

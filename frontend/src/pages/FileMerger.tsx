@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
@@ -6,10 +5,13 @@ import {
     Files,
     Settings,
     Search,
-    Rocket,
     Download,
     Loader2,
-    Zap
+    Zap,
+    Sparkles,
+    Layers,
+    GitMerge,
+    Database
 } from "lucide-react";
 import { downloadBlob, extractFilename } from "../utils/download";
 import { parseApiError } from "../utils/apiError";
@@ -25,12 +27,13 @@ interface FileMergerProps {
 }
 
 export default function FileMerger({ onLogAction }: FileMergerProps) {
-    const { notify } = useNotifications();
+    const { notify, dismiss } = useNotifications();
     const [files, setFiles] = useState<File[]>([]);
     const [commonColumns, setCommonColumns] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
     const [sample, setSample] = useState<SampleData | null>(null);
 
+    // ... (state) ...
     const [strategy, setStrategy] = useState<"intersection" | "union">("intersection");
     const [caseInsensitive] = useState(false);
     const [removeDuplicates, setRemoveDuplicates] = useState(false);
@@ -94,31 +97,32 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
     const handleMerge = useCallback(async () => {
         if (files.length < 2) {
-            notify('error', 'Ready State Empty', "Please upload at least 2 files to merge.");
+            notify('error', 'Files Required', "Please upload at least 2 files to merge.");
             return;
         }
 
         setLoading(true);
-        notify('loading', 'Merging Datasets', 'Analyzing overlapping structures and unifying rows...');
+        const toastId = notify('loading', 'Merging Files', 'Consolidating datasets...');
+
         try {
             const fd = new FormData();
+            // ... (form data population) ...
             files.forEach((f) => fd.append("files", f));
-            selectedCols.forEach((c) => fd.append("columns", c));
+            fd.append("selected_columns", selectedCols.join(","));
             fd.append("strategy", strategy);
             fd.append("case_insensitive", String(caseInsensitive));
             fd.append("remove_duplicates", String(removeDuplicates));
             fd.append("all_sheets", String(allSheets));
             fd.append("trim_whitespace", String(trimWhitespace));
-            fd.append("case_transform", casing);
-            fd.append("include_source", String(includeSource));
-            fd.append("merge_mode", mergeMode);
+            fd.append("casing", casing);
+            fd.append("include_source_col", String(includeSource));
+            fd.append("join_mode", mergeMode);
 
-            if (mergeMode === "join") {
-                fd.append("join_type", joinType);
+            if (mergeMode === "join" && joinKey) {
                 fd.append("join_key", joinKey);
             }
 
-            const res = await fetchWithAuth("/api/file/merge", {
+            const res = await fetchWithAuth("/api/file/merge-common-columns", {
                 method: "POST",
                 body: fd,
             });
@@ -135,16 +139,17 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             downloadBlob(blob, outName);
             setResultBlob(blob);
             setResultFilename(outName);
-            notify('success', 'Merge Complete', `Consolidated ${files.length} files into ${outName}`);
+            notify('success', 'Merge Complete', `Consolidated ${files.length} files successfully.`);
 
             if (onLogAction) onLogAction("Merge Files", outName, blob);
         } catch (e) {
             console.error("Merge error:", e);
-            notify('error', 'Merge Interrupted', e instanceof Error ? e.message : "An error occurred.");
+            notify('error', 'Merge Failed', e instanceof Error ? e.message : "An error occurred.");
         } finally {
+            dismiss(toastId);
             setLoading(false);
         }
-    }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinType, joinKey, onLogAction, notify]);
+    }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinType, joinKey, onLogAction, notify, dismiss]);
 
     const toggleColumn = useCallback((col: string) => {
         setSelectedCols(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]);
@@ -153,109 +158,258 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
     const downloadResult = () => resultBlob && resultFilename && downloadBlob(resultBlob, resultFilename);
 
     return (
-        <div className="app">
-            <div className="section">
-                <h4><Files size={18} /> Select Source Files</h4>
+        <div className="app page-enter">
+            {/* File Upload */}
+            <div className="section slide-in-left">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        background: 'var(--gradient-primary)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white'
+                    }}>
+                        <Files size={20} />
+                    </div>
+                    <div>
+                        <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>SELECT FILES TO MERGE</h4>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Upload 2+ CSV or Excel files</p>
+                    </div>
+                </div>
                 <FileUpload files={files} onFilesSelected={handleFileChange} />
+                {files.length > 0 && files.length < 2 && (
+                    <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        ⚠️ Add at least one more file to merge
+                    </p>
+                )}
             </div>
 
             {files.length >= 2 && (
                 <>
-                    <div className="section">
-                        <h4><Settings size={18} /> Unifier Parameters</h4>
-                        <div className="form-grid">
-                            <div className="input-group">
-                                <label>Strategy</label>
-                                <select value={strategy} onChange={(e) => setStrategy(e.target.value as any)}>
-                                    <option value="intersection">Intersection (Common Only)</option>
-                                    <option value="union">Union (All Columns)</option>
-                                </select>
-                            </div>
-                            <div className="input-group">
-                                <label>Consolidation Logic</label>
-                                <select value={mergeMode} onChange={(e) => setMergeMode(e.target.value as any)}>
-                                    <option value="stack">Vertical Stack (Append Rows)</option>
-                                    <option value="join">Horizontal Join (SQL Style)</option>
-                                </select>
-                            </div>
-                            {mergeMode === "join" && (
-                                <>
-                                    <div className="input-group">
-                                        <label>Join Key (Common Column)</label>
-                                        <select value={joinKey} onChange={(e) => setJoinKey(e.target.value)}>
-                                            <option value="">-- Auto Detect --</option>
-                                            {commonColumns.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="input-group">
-                                        <label>Join Type</label>
-                                        <select value={joinType} onChange={(e) => setJoinType(e.target.value as any)}>
-                                            <option value="left">Left (Keep first file's keys)</option>
-                                            <option value="inner">Inner (Keys in all files)</option>
-                                            <option value="outer">Outer (Keys in any file)</option>
-                                        </select>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                    {/* Merge Configuration */}
+                    <div className="section slide-in-left" style={{ animationDelay: '0.1s', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'var(--gradient-info)',
+                            borderRadius: '24px 24px 0 0'
+                        }} />
 
-                        <div className="checkbox-grid" style={{ marginTop: 24 }}>
-                            <label className="checkbox"><input type="checkbox" checked={includeSource} onChange={e => setIncludeSource(e.target.checked)} /> Mark Sources</label>
-                            <label className="checkbox"><input type="checkbox" checked={removeDuplicates} onChange={e => setRemoveDuplicates(e.target.checked)} /> Deduplicate</label>
-                            <label className="checkbox"><input type="checkbox" checked={trimWhitespace} onChange={e => setTrimWhitespace(e.target.checked)} /> Trim Spaces</label>
-                            <label className="checkbox"><input type="checkbox" checked={allSheets} onChange={e => setAllSheets(e.target.checked)} /> Scan all sheets</label>
+                        <div style={{ paddingTop: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                <Settings size={20} style={{ color: 'var(--primary)' }} />
+                                <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>MERGE CONFIGURATION</h4>
+                            </div>
+
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
+                                gap: '16px',
+                                marginBottom: '24px'
+                            }}>
+                                <div className="input-group">
+                                    <label>Column Strategy</label>
+                                    <select value={strategy} onChange={(e) => setStrategy(e.target.value as any)}>
+                                        <option value="intersection">Intersection (Common Only)</option>
+                                        <option value="union">Union (All Columns)</option>
+                                    </select>
+                                </div>
+
+                                <div className="input-group">
+                                    <label>Merge Mode</label>
+                                    <select value={mergeMode} onChange={(e) => setMergeMode(e.target.value as any)}>
+                                        <option value="stack">Vertical Stack (Append Rows)</option>
+                                        <option value="join">Horizontal Join (SQL Style)</option>
+                                    </select>
+                                </div>
+
+                                {mergeMode === "join" && (
+                                    <>
+                                        <div className="input-group">
+                                            <label>Join Key Column</label>
+                                            <select value={joinKey} onChange={(e) => setJoinKey(e.target.value)}>
+                                                <option value="">-- Auto Detect --</option>
+                                                {commonColumns.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="input-group">
+                                            <label>Join Type</label>
+                                            <select value={joinType} onChange={(e) => setJoinType(e.target.value as any)}>
+                                                <option value="left">Left (Keep first file)</option>
+                                                <option value="inner">Inner (Common keys)</option>
+                                                <option value="outer">Outer (All keys)</option>
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                gap: '12px'
+                            }}>
+                                <label className="checkbox">
+                                    <input type="checkbox" checked={includeSource} onChange={e => setIncludeSource(e.target.checked)} />
+                                    <Database size={16} />
+                                    Mark Source Files
+                                </label>
+                                <label className="checkbox">
+                                    <input type="checkbox" checked={removeDuplicates} onChange={e => setRemoveDuplicates(e.target.checked)} />
+                                    <Layers size={16} />
+                                    Remove Duplicates
+                                </label>
+                                <label className="checkbox">
+                                    <input type="checkbox" checked={trimWhitespace} onChange={e => setTrimWhitespace(e.target.checked)} />
+                                    <GitMerge size={16} />
+                                    Trim Whitespace
+                                </label>
+                                <label className="checkbox">
+                                    <input type="checkbox" checked={allSheets} onChange={e => setAllSheets(e.target.checked)} />
+                                    <Files size={16} />
+                                    Process All Sheets
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="section">
-                        <h4><Search size={18} /> Schema Discovery</h4>
-                        {loading && commonColumns.length === 0 ? <p className="desc">Analying files...</p> : (
-                            <>
-                                <div className="flex-responsive" style={{ marginBottom: 12 }}>
-                                    <p className="desc" style={{ margin: 0 }}>Select columns to project into the final refined dataset:</p>
-                                    <div className="inline" style={{ gridTemplateColumns: 'auto auto' }}>
-                                        <button className="secondary" onClick={() => setSelectedCols(commonColumns)}>All</button>
-                                        <button className="secondary" onClick={() => setSelectedCols([])}>None</button>
-                                    </div>
-                                </div>
-                                <div className="checkbox-grid" style={{ maxHeight: "250px", overflowY: "auto" }}>
-                                    {commonColumns.map(c => (
-                                        <label key={c} className="checkbox">
-                                            <input type="checkbox" checked={selectedCols.includes(c)} onChange={() => toggleColumn(c)} />
-                                            {c}
-                                        </label>
-                                    ))}
-                                </div>
+                    {/* Column Selection */}
+                    <div className="section slide-in-right" style={{ animationDelay: '0.2s', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'var(--gradient-success)',
+                            borderRadius: '24px 24px 0 0'
+                        }} />
 
-                                {sample && (
-                                    <div className="table-container" style={{ marginTop: 24 }}>
-                                        <table>
-                                            <thead>
-                                                <tr>{sample.headers.slice(0, 6).map(h => <th key={h}>{h}</th>)}</tr>
-                                            </thead>
-                                            <tbody>
-                                                {sample.rows.map((row, i) => (
-                                                    <tr key={i}>{row.slice(0, 6).map((cell, j) => <td key={j}>{cell}</td>)}</tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                        <div style={{ paddingTop: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Search size={20} style={{ color: 'var(--primary)' }} />
+                                    <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>COLUMN SELECTION</h4>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button className="secondary" onClick={() => setSelectedCols(commonColumns)} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                                        Select All
+                                    </button>
+                                    <button className="secondary" onClick={() => setSelectedCols([])} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+
+                            {loading && commonColumns.length === 0 ? (
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Analyzing files...</p>
+                            ) : (
+                                <>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                                        Select columns to include in merged file ({selectedCols.length} of {commonColumns.length} selected)
+                                    </p>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                        gap: '12px',
+                                        maxHeight: '250px',
+                                        overflowY: 'auto'
+                                    }}>
+                                        {commonColumns.map(c => (
+                                            <label key={c} className="checkbox">
+                                                <input type="checkbox" checked={selectedCols.includes(c)} onChange={() => toggleColumn(c)} />
+                                                {c}
+                                            </label>
+                                        ))}
                                     </div>
-                                )}
-                            </>
-                        )}
+
+                                    {sample && (
+                                        <div style={{ marginTop: '24px' }}>
+                                            <h4 style={{ fontSize: '12px', marginBottom: '12px', color: 'var(--text-muted)' }}>PREVIEW (First 5 rows)</h4>
+                                            <div className="table-container">
+                                                <table>
+                                                    <thead>
+                                                        <tr>{sample.headers.slice(0, 6).map(h => <th key={h}>{h}</th>)}</tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {sample.rows.map((row, i) => (
+                                                            <tr key={i}>{row.slice(0, 6).map((cell, j) => <td key={j}>{cell}</td>)}</tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
                 </>
             )}
 
-            <div className="section flex-responsive">
-                <h4 style={{ margin: 0 }}><Rocket size={18} /> Ready?</h4>
-                <div className="inline" style={{ gridTemplateColumns: 'auto auto' }}>
-                    {resultBlob && (
-                        <button onClick={downloadResult} className="secondary"><Download size={18} /> Download Unified</button>
-                    )}
-                    <button onClick={handleMerge} disabled={loading || files.length < 2} className="primary">
-                        {loading ? <Loader2 className="animate-spin" /> : <Zap />} Unify Datasets
+            {/* Merge Button */}
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0', gap: '12px' }}>
+                {resultBlob && (
+                    <button onClick={downloadResult} className="secondary" style={{
+                        padding: '18px 40px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        borderRadius: '16px'
+                    }}>
+                        <Download size={20} />
+                        Download Result
                     </button>
+                )}
+                <button
+                    onClick={handleMerge}
+                    disabled={loading || files.length < 2}
+                    style={{
+                        padding: '18px 60px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        borderRadius: '16px',
+                        background: loading ? 'var(--text-muted)' : 'var(--gradient-primary)',
+                        border: 'none',
+                        color: 'white',
+                        boxShadow: loading ? 'none' : 'var(--shadow-xl)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        transition: 'all 0.3s ease'
+                    }}
+                >
+                    {loading ? (
+                        <>
+                            <Loader2 className="animate-spin" size={20} />
+                            Merging...
+                        </>
+                    ) : (
+                        <>
+                            <Zap size={20} />
+                            Merge Files
+                        </>
+                    )}
+                </button>
+            </div>
+
+            {/* Pro Tip */}
+            <div className="tool-help-section scale-in" style={{ animationDelay: '0.3s' }}>
+                <div className="tool-help-icon">
+                    <Sparkles size={24} />
+                </div>
+                <div className="tool-help-content">
+                    <h5>Pro Tip: Merge Strategies</h5>
+                    <p>
+                        Use <strong>Intersection</strong> to keep only columns that exist in all files (safest option).
+                        Use <strong>Union</strong> to include all columns from all files (fills missing values with blanks).
+                        For SQL-style joins, select a common key column to match rows across files.
+                    </p>
                 </div>
             </div>
         </div>

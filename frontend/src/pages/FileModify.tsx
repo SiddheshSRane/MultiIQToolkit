@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
@@ -6,11 +5,14 @@ import {
   File as FileIcon,
   Wrench,
   Settings,
-  Rocket,
   Download,
   Loader2,
   Zap,
-  Search
+  Search,
+  Sparkles,
+  Edit3,
+  Trash2,
+  Replace
 } from "lucide-react";
 import { downloadBlob, extractFilename } from "../utils/download";
 import { parseApiError } from "../utils/apiError";
@@ -45,6 +47,12 @@ const API_ENDPOINTS = {
   REPLACE: "/api/file/replace-blanks",
 } as const;
 
+const MODES = [
+  { id: "remove", label: "Remove Columns", icon: Trash2, color: "var(--gradient-danger)" },
+  { id: "rename", label: "Rename Columns", icon: Edit3, color: "var(--gradient-info)" },
+  { id: "replace", label: "Replace Blanks", icon: Replace, color: "var(--gradient-warm)" },
+] as const;
+
 export default function FileModify({ onLogAction }: FileModifyProps) {
   const { notify } = useNotifications();
   const [files, setFiles] = useState<File[]>([]);
@@ -59,7 +67,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const [allSheets] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Fetch column preview
+  // Preview Fetching Logic
   const fetchPreview = useCallback(async (file: File, sheetName?: string | null): Promise<PreviewResponse | null> => {
     try {
       const formData = new FormData();
@@ -126,7 +134,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     }
 
     setLoading(true);
-    notify('loading', 'Processing', `Applying ${mode} operation to ${files.length} file(s)...`);
+    notify('loading', 'Processing Files', `Applying ${mode} operation...`);
 
     try {
       const endpoint = API_ENDPOINTS[mode.toUpperCase() as keyof typeof API_ENDPOINTS];
@@ -134,15 +142,15 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       files.forEach((f) => formData.append("files", f));
 
       if (mode === "remove" || mode === "replace") {
-        selected.forEach((s) => formData.append("columns", s));
+        formData.append("columns", selected.join(","));
       }
 
       if (mode === "rename") {
-        formData.append("rename_map", JSON.stringify(renameMap));
+        formData.append("mapping", JSON.stringify(renameMap));
       }
 
       if (mode === "replace") {
-        formData.append("value", replacementValue);
+        formData.append("replacement", replacementValue);
       }
 
       if (sheet) formData.append("sheet_name", sheet);
@@ -160,11 +168,11 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
       const blob = await response.blob();
       const contentDisposition = response.headers.get("content-disposition");
-      const outName = extractFilename(contentDisposition, files.length > 1 ? "processed_batch.zip" : files[0].name);
+      const outName = extractFilename(contentDisposition, files.length > 1 ? "modified_batch.zip" : files[0].name);
 
       downloadBlob(blob, outName);
       setResults([{ blob, filename: outName }]);
-      notify('success', 'Operation Success', `Successfully processed ${files.length} file(s).`);
+      notify('success', 'Operation Complete', `Successfully processed ${files.length} file(s).`);
 
       if (onLogAction) onLogAction(`File ${mode}`, outName, blob);
     } catch (e) {
@@ -180,104 +188,269 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   }, [results]);
 
   return (
-    <div className="app">
-      <div className="section">
-        <h4><FileIcon size={18} /> Select Files</h4>
+    <div className="app page-enter">
+      {/* File Upload */}
+      <div className="section slide-in-left">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            background: 'var(--gradient-primary)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white'
+          }}>
+            <FileIcon size={20} />
+          </div>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>SELECT FILES</h4>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Upload CSV or Excel files to modify</p>
+          </div>
+        </div>
         <FileUpload files={files} onFilesSelected={setFiles} />
       </div>
 
       {files.length > 0 && columns.length > 0 && (
         <>
-          <div className="section">
-            <h4><Wrench size={18} /> Choose Operation</h4>
-            <div className="mode-group">
-              <button className={mode === "remove" ? "active" : ""} onClick={() => handleModeChange("remove")}>Remove Columns</button>
-              <button className={mode === "rename" ? "active" : ""} onClick={() => handleModeChange("rename")}>Rename Columns</button>
-              <button className={mode === "replace" ? "active" : ""} onClick={() => handleModeChange("replace")}>Replace Blanks</button>
+          {/* Mode Selector */}
+          <div className="section slide-in-left" style={{ animationDelay: '0.1s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <Wrench size={20} style={{ color: 'var(--primary)' }} />
+              <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>CHOOSE OPERATION</h4>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
+              gap: '12px'
+            }}>
+              {MODES.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => handleModeChange(m.id as Mode)}
+                    style={{
+                      padding: '20px',
+                      background: mode === m.id ? 'var(--primary-glow)' : 'var(--input-bg)',
+                      border: mode === m.id ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      background: mode === m.id ? m.color : 'var(--card-bg)',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white'
+                    }}>
+                      <Icon size={20} />
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: mode === m.id ? 'var(--primary)' : 'var(--text-main)' }}>
+                      {m.label}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="section">
-            <h4><Settings size={18} /> Configuration</h4>
-            {mode === "remove" ? (
-              <>
-                <div className="flex-responsive" style={{ marginBottom: 16 }}>
-                  <p className="desc" style={{ margin: 0 }}>Select columns to remove ({selected.length} selected):</p>
-                  <div className="inline" style={{ gridTemplateColumns: 'auto auto' }}>
-                    <button className="secondary" onClick={selectAllColumns}>All</button>
-                    <button className="secondary" onClick={deselectAllColumns}>None</button>
-                  </div>
-                </div>
-                <div className="checkbox-grid" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                  {columns.map((col) => (
-                    <label key={col} className="checkbox">
-                      <input type="checkbox" checked={selected.includes(col)} onChange={() => toggleColumn(col)} />
-                      {col}
-                    </label>
-                  ))}
-                </div>
-              </>
-            ) : mode === "rename" ? (
-              <>
-                <div className="flex-responsive" style={{ marginBottom: 16 }}>
-                  <p className="desc" style={{ margin: 0 }}>Enter new names for the columns. {activeRenamesCount > 0 && `(${activeRenamesCount} active)`}</p>
-                  <button className="secondary" onClick={clearAllRenames}>Clear All</button>
-                </div>
-                <div className="rename-list" style={{ maxHeight: "400px", overflowY: "auto", display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {columns.map((col) => (
-                    <div key={col} className="rename-row">
-                      <span title={col} style={{ fontWeight: 700, minWidth: 140 }}>{col}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-                        <span style={{ opacity: 0.3 }}>→</span>
-                        <input type="text" placeholder="New column name..." value={renameMap[col] || ""} onChange={(e) => handleRenameChange(col, e.target.value)} />
-                      </div>
+          {/* Configuration */}
+          <div className="section slide-in-right" style={{ animationDelay: '0.2s', position: 'relative', overflow: 'hidden' }}>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: MODES.find(m => m.id === mode)?.color || 'var(--gradient-primary)',
+              borderRadius: '24px 24px 0 0'
+            }} />
+
+            <div style={{ paddingTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                <Settings size={20} style={{ color: 'var(--primary)' }} />
+                <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>CONFIGURATION</h4>
+              </div>
+
+              {mode === "remove" && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Select columns to remove ({selected.length} selected)
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="secondary" onClick={selectAllColumns} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                        Select All
+                      </button>
+                      <button className="secondary" onClick={deselectAllColumns} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                        Clear
+                      </button>
                     </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex-responsive" style={{ marginBottom: 16 }}>
-                  <p className="desc" style={{ margin: 0 }}>Select columns to check for blanks ({selected.length} selected):</p>
-                  <div className="inline" style={{ gridTemplateColumns: 'auto auto' }}>
-                    <button className="secondary" onClick={selectAllColumns}>All</button>
-                    <button className="secondary" onClick={deselectAllColumns}>None</button>
                   </div>
-                </div>
-                <div className="checkbox-grid" style={{ maxHeight: "200px", overflowY: "auto", marginBottom: 20 }}>
-                  {columns.map((col) => (
-                    <label key={col} className="checkbox">
-                      <input type="checkbox" checked={selected.includes(col)} onChange={() => toggleColumn(col)} />
-                      {col}
-                    </label>
-                  ))}
-                </div>
-                <div className="input-group" style={{ maxWidth: 400 }}>
-                  <label>Replacement Value</label>
-                  <input type="text" placeholder="e.g. N/A, 0, or [Missing]" value={replacementValue} onChange={(e) => setReplacementValue(e.target.value)} />
-                </div>
-              </>
-            )}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap: '12px',
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    {columns.map((col) => (
+                      <label key={col} className="checkbox">
+                        <input type="checkbox" checked={selected.includes(col)} onChange={() => toggleColumn(col)} />
+                        {col}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {mode === "rename" && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Enter new names for columns {activeRenamesCount > 0 && `(${activeRenamesCount} active)`}
+                    </p>
+                    <button className="secondary" onClick={clearAllRenames} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                      Clear All
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {columns.map((col) => (
+                      <div key={col} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px 16px',
+                        background: 'var(--input-bg)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color)'
+                      }}>
+                        <span style={{ fontWeight: 700, minWidth: '140px', fontSize: '13px' }}>{col}</span>
+                        <span style={{ opacity: 0.3, fontSize: '18px' }}>→</span>
+                        <input
+                          type="text"
+                          placeholder="New column name..."
+                          value={renameMap[col] || ""}
+                          onChange={(e) => handleRenameChange(col, e.target.value)}
+                          style={{ flex: 1, background: 'var(--card-bg)' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {mode === "replace" && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Select columns to check for blanks ({selected.length} selected)
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="secondary" onClick={selectAllColumns} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                        Select All
+                      </button>
+                      <button className="secondary" onClick={deselectAllColumns} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap: '12px',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    marginBottom: '20px'
+                  }}>
+                    {columns.map((col) => (
+                      <label key={col} className="checkbox">
+                        <input type="checkbox" checked={selected.includes(col)} onChange={() => toggleColumn(col)} />
+                        {col}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="input-group" style={{ maxWidth: '400px' }}>
+                    <label>Replacement Value</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. N/A, 0, or [Missing]"
+                      value={replacementValue}
+                      onChange={(e) => setReplacementValue(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </>
       )}
 
-      <div className="section flex-responsive">
-        <h4 style={{ margin: 0 }}><Rocket size={18} /> Ready?</h4>
-        <div className="inline" style={{ gridTemplateColumns: 'auto auto' }}>
-          {results.length > 0 && (
-            <button onClick={downloadAll} className="secondary"><Download size={18} /> Download Result</button>
-          )}
-          <button onClick={handleApply} disabled={loading || files.length === 0} className="primary">
-            {loading ? <Loader2 className="animate-spin" /> : <Zap />} Apply Changes
+      {/* Apply Button */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0', gap: '12px' }}>
+        {results.length > 0 && (
+          <button onClick={downloadAll} className="secondary" style={{
+            padding: '18px 40px',
+            fontSize: '16px',
+            fontWeight: 700,
+            borderRadius: '16px'
+          }}>
+            <Download size={20} />
+            Download Result
           </button>
-        </div>
+        )}
+        <button
+          onClick={handleApply}
+          disabled={loading || files.length === 0}
+          style={{
+            padding: '18px 60px',
+            fontSize: '16px',
+            fontWeight: 700,
+            borderRadius: '16px',
+            background: loading ? 'var(--text-muted)' : 'var(--gradient-primary)',
+            border: 'none',
+            color: 'white',
+            boxShadow: loading ? 'none' : 'var(--shadow-xl)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="animate-spin" size={20} />
+              Processing...
+            </>
+          ) : (
+            <>
+              <Zap size={20} />
+              Apply Changes
+            </>
+          )}
+        </button>
       </div>
 
+      {/* Preview Table */}
       {sample && (
-        <div className="section">
-          <h4><Search size={18} /> Preview (Top 5 rows)</h4>
-          <div className="table-container" style={{ marginTop: 12 }}>
+        <div className="section scale-in" style={{ animationDelay: '0.3s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+            <Search size={20} style={{ color: 'var(--primary)' }} />
+            <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>DATA PREVIEW</h4>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>(Top 5 rows)</span>
+          </div>
+          <div className="table-container">
             <table>
               <thead>
                 <tr>{sample.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
@@ -291,6 +464,20 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
           </div>
         </div>
       )}
+
+      {/* Pro Tip */}
+      <div className="tool-help-section scale-in" style={{ animationDelay: '0.4s' }}>
+        <div className="tool-help-icon">
+          <Sparkles size={24} />
+        </div>
+        <div className="tool-help-content">
+          <h5>Pro Tip: Batch Operations</h5>
+          <p>
+            You can upload multiple files at once and apply the same operation to all of them.
+            The tool will process them in batch and return a ZIP file with all modified files.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

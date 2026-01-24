@@ -1,16 +1,18 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     Keyboard,
     Files,
-    Download,
     Loader2,
     Zap,
-    Clipboard,
     Settings,
-    FileText
+    FileText,
+    Calendar,
+    Clock,
+    Copy,
+    Sparkles,
+    Globe
 } from "lucide-react";
 import { downloadBlob, extractFilename } from "../utils/download";
 import { parseApiError } from "../utils/apiError";
@@ -32,25 +34,25 @@ interface DateTimeConverterProps {
 }
 
 const DATE_FORMATS = [
-    { label: "YYYY-MM-DD", value: "%Y-%m-%d" },
-    { label: "DD/MM/YYYY", value: "%d/%m/%Y" },
-    { label: "MM/DD/YYYY", value: "%m/%d/%Y" },
-    { label: "MM-DD-YYYY", value: "%m-%d-%Y" },
-    { label: "DD-MM-YYYY", value: "%d-%m-%Y" },
-    { label: "ISO 8601", value: "ISO 8601" },
-    { label: "Custom Format (strftime)", value: "custom" },
+    { label: "YYYY-MM-DD", value: "%Y-%m-%d", example: "2024-01-23" },
+    { label: "DD/MM/YYYY", value: "%d/%m/%Y", example: "23/01/2024" },
+    { label: "MM/DD/YYYY", value: "%m/%d/%Y", example: "01/23/2024" },
+    { label: "MM-DD-YYYY", value: "%m-%d-%Y", example: "01-23-2024" },
+    { label: "DD-MM-YYYY", value: "%d-%m-%Y", example: "23-01-2024" },
+    { label: "ISO 8601", value: "ISO 8601", example: "2024-01-23T22:18:00Z" },
+    { label: "Custom Format", value: "custom", example: "Use strftime codes" },
 ];
 
 export default function DateTimeConverter({ onLogAction }: DateTimeConverterProps) {
-    const { notify } = useNotifications();
+    const { notify, dismiss } = useNotifications();
     const [mode, setMode] = useState<"paste" | "file">("paste");
 
-    // Paste Mode State
+    // ... (state)
+
     const [input, setInput] = useState("");
     const [output, setOutput] = useState("");
     const [stats, setStats] = useState<ConversionStats | null>(null);
 
-    // File Mode State
     const [files, setFiles] = useState<File[]>([]);
     const [columns, setColumns] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
@@ -112,10 +114,12 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
     const handleConvertPaste = useCallback(async () => {
         if (!input.trim()) {
-            notify('error', 'Ready State Empty', "Please enter some dates to convert.");
+            notify('error', 'Input Required', "Please enter some dates to convert.");
             return;
         }
         setLoading(true);
+        const toastId = notify('loading', 'Converting Dates', 'Standardizing date formats...');
+
         try {
             const res = await fetchWithAuth("/api/convert/datetime", {
                 method: "POST",
@@ -134,18 +138,19 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             const data = await res.json();
             setOutput(data.result);
             setStats(data.stats);
-            notify('success', 'Refinement Complete', 'Dates standardized successfully.');
+            notify('success', 'Conversion Complete', 'Dates standardized successfully.');
 
             if (onLogAction) {
                 onLogAction("DateTime Conversion", "dates.txt", new Blob([data.result], { type: "text/plain" }));
             }
         } catch (e) {
             console.error("Conversion error:", e);
-            notify('error', 'Refinery Blocked', e instanceof Error ? e.message : "Conversion failed.");
+            notify('error', 'Conversion Failed', e instanceof Error ? e.message : "Conversion failed.");
         } finally {
+            dismiss(toastId);
             setLoading(false);
         }
-    }, [input, getTargetFormat, onLogAction, notify]);
+    }, [input, getTargetFormat, onLogAction, notify, dismiss]);
 
     const handleConvertFile = useCallback(async () => {
         if (files.length === 0 || selectedCols.length === 0) {
@@ -154,7 +159,8 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         }
 
         setLoading(true);
-        notify('loading', 'Standardizing File(s)', 'Processing calendar data structures...');
+        const toastId = notify('loading', 'Processing Files', 'Converting date columns...');
+
         try {
             const fd = new FormData();
             files.forEach(f => fd.append("files", f));
@@ -175,19 +181,20 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
 
             const blob = await res.blob();
             const contentDisposition = res.headers.get("content-disposition");
-            const defaultName = files.length > 1 ? "standardized_dates_batch.zip" : files[0].name;
+            const defaultName = files.length > 1 ? "converted_dates_batch.zip" : files[0].name;
             const outName = extractFilename(contentDisposition, defaultName);
 
             downloadBlob(blob, outName);
-            notify('success', 'Export Complete', `Processed ${files.length} file(s) into ${outName}`);
+            notify('success', 'Export Complete', `Processed ${files.length} file(s) successfully.`);
             if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
         } catch (e) {
             console.error("File conversion error:", e);
-            notify('error', 'Process Interrupted', e instanceof Error ? e.message : "Error during processing.");
+            notify('error', 'Process Failed', e instanceof Error ? e.message : "Error during processing.");
         } finally {
+            dismiss(toastId);
             setLoading(false);
         }
-    }, [files, selectedCols, getTargetFormat, sheet, allSheets, onLogAction, notify]);
+    }, [files, selectedCols, getTargetFormat, sheet, allSheets, onLogAction, notify, dismiss]);
 
     const handleCopy = useCallback(async () => {
         try {
@@ -205,14 +212,14 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         setFiles([]);
         setColumns([]);
         setSelectedCols([]);
-        notify('info', 'Workspace Reset', 'All date values and files cleared.');
+        notify('info', 'Workspace Cleared', 'All data cleared.');
     }, [notify]);
 
-    /* Keyboard shortcut */
     useEffect(() => {
         if (mode !== "paste") return;
         const handler = (e: KeyboardEvent) => {
             if (e.ctrlKey && e.key === "Enter") {
+                e.preventDefault();
                 handleConvertPaste();
             }
         };
@@ -220,50 +227,224 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         return () => window.removeEventListener("keydown", handler);
     }, [mode, handleConvertPaste]);
 
+    const selectedFormat = DATE_FORMATS.find(f => f.value === format);
+
     return (
-        <div className="app">
-            <div className="mode-group" style={{ marginBottom: 32 }}>
-                <button className={mode === "paste" ? "active" : ""} onClick={() => setMode("paste")}><Keyboard size={16} /> Paste Mode</button>
-                <button className={mode === "file" ? "active" : ""} onClick={() => setMode("file")}><Files size={16} /> File Mode</button>
+        <div className="app page-enter">
+            {/* Mode Selector */}
+            <div style={{
+                display: 'flex',
+                gap: '8px',
+                background: 'var(--input-bg)',
+                padding: '8px',
+                borderRadius: '16px',
+                border: '1px solid var(--border-color)',
+                width: 'fit-content',
+                marginBottom: '32px'
+            }}>
+                <button
+                    className={mode === "paste" ? "active" : ""}
+                    onClick={() => setMode("paste")}
+                    style={{
+                        borderRadius: '12px',
+                        background: mode === "paste" ? 'var(--primary)' : 'transparent',
+                        color: mode === "paste" ? 'white' : 'var(--text-muted)',
+                        padding: '10px 20px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        border: 'none',
+                        boxShadow: mode === "paste" ? 'var(--shadow-md)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Keyboard size={16} />
+                    Paste Mode
+                </button>
+                <button
+                    className={mode === "file" ? "active" : ""}
+                    onClick={() => setMode("file")}
+                    style={{
+                        borderRadius: '12px',
+                        background: mode === "file" ? 'var(--primary)' : 'transparent',
+                        color: mode === "file" ? 'white' : 'var(--text-muted)',
+                        padding: '10px 20px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        border: 'none',
+                        boxShadow: mode === "file" ? 'var(--shadow-md)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Files size={16} />
+                    File Mode
+                </button>
             </div>
 
             {mode === "paste" ? (
-                <>
-                    <div className="flex-responsive" style={{ marginBottom: 12 }}>
-                        <h4 style={{ margin: 0 }}>
-                            <Download size={18} /> Input Dates
-                        </h4>
-                        <button className="secondary" onClick={clearAll} style={{ padding: "6px 12px", fontSize: "12px" }}>Clear All</button>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '24px' }}>
+                    {/* Input Section */}
+                    <div className="section slide-in-left" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'var(--gradient-info)',
+                            borderRadius: '24px 24px 0 0'
+                        }} />
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingTop: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Calendar size={18} style={{ color: 'var(--primary)' }} />
+                                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>INPUT DATES</h4>
+                            </div>
+                            <button className="secondary" onClick={clearAll} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                                Clear
+                            </button>
+                        </div>
+
+                        <textarea
+                            placeholder="Paste dates here (one per line)&#10;Examples:&#10;2023-05-15&#10;15/06/2023&#10;06-20-2023"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            style={{
+                                flex: 1,
+                                minHeight: '300px',
+                                fontFamily: 'JetBrains Mono, monospace',
+                                fontSize: '13px',
+                                lineHeight: '1.8',
+                                resize: 'vertical'
+                            }}
+                        />
+
+                        <p style={{ fontSize: '11px', textAlign: 'right', marginTop: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            ⌨️ Press <strong>Ctrl + Enter</strong> to convert
+                        </p>
                     </div>
 
-                    <textarea
-                        rows={8}
-                        placeholder="Paste one date per line (Ctrl + Enter to convert)&#10;e.g. 2023-05-15, 15/06/2023, invalid-date"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                    />
-                    <p className="desc" style={{ fontSize: "11px", textAlign: "right", marginTop: "8px", opacity: 0.7 }}>
-                        ⌨️ Press <b>Ctrl + Enter</b> to convert instantly
-                    </p>
+                    {/* Output Section */}
+                    {output && (
+                        <div className="section slide-in-right" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: '4px',
+                                background: 'var(--gradient-success)',
+                                borderRadius: '24px 24px 0 0'
+                            }} />
 
-                    {stats && (
-                        <div className="stats" style={{ margin: '24px 0', padding: "12px 20px" }}>
-                            <strong>Lines:</strong> {stats.total_lines} <span style={{ opacity: 0.3, margin: "0 8px" }}>|</span>{" "}
-                            <strong>Valid:</strong> {stats.non_empty}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingTop: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Clock size={18} style={{ color: 'var(--primary)' }} />
+                                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700 }}>CONVERTED DATES</h4>
+                                </div>
+                                <button className="secondary" onClick={handleCopy} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px' }}>
+                                    <Copy size={12} />
+                                    Copy
+                                </button>
+                            </div>
+
+                            <textarea
+                                readOnly
+                                value={output}
+                                style={{
+                                    flex: 1,
+                                    minHeight: '300px',
+                                    background: 'var(--input-bg)',
+                                    border: '2px solid var(--primary)',
+                                    color: 'var(--primary)',
+                                    fontWeight: 600,
+                                    fontFamily: 'JetBrains Mono, monospace',
+                                    fontSize: '13px',
+                                    lineHeight: '1.8',
+                                    resize: 'vertical'
+                                }}
+                            />
+
+                            {stats && (
+                                <div style={{
+                                    marginTop: '12px',
+                                    padding: '16px',
+                                    background: 'var(--primary-glow)',
+                                    border: '1px solid var(--primary)',
+                                    borderRadius: '12px',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(2, 1fr)',
+                                    gap: '16px',
+                                    fontSize: '12px',
+                                    fontWeight: 700
+                                }}>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginBottom: '4px' }}>TOTAL LINES</div>
+                                        <div style={{ color: 'var(--primary)', fontSize: '18px' }}>{stats.total_lines}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginBottom: '4px' }}>VALID DATES</div>
+                                        <div style={{ color: 'var(--primary)', fontSize: '18px' }}>{stats.non_empty}</div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
-                </>
+                </div>
             ) : (
                 <>
-                    <div className="section">
-                        <h4><Files size={18} /> Select Files</h4>
+                    {/* File Upload Section */}
+                    <div className="section slide-in-left">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                background: 'var(--gradient-info)',
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white'
+                            }}>
+                                <Files size={20} />
+                            </div>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>SELECT FILES</h4>
+                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Upload CSV or Excel files</p>
+                            </div>
+                        </div>
                         <FileUpload files={files} onFilesSelected={setFiles} />
                     </div>
 
+                    {/* Column Selection */}
                     {columns.length > 0 && (
-                        <div className="section">
-                            <h4><FileText size={18} /> Choose Columns to Standardize</h4>
-                            <div className="checkbox-grid">
+                        <div className="section slide-in-right" style={{ animationDelay: '0.1s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                <div style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    background: 'var(--gradient-warm)',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white'
+                                }}>
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>SELECT DATE COLUMNS</h4>
+                                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Choose columns to convert</p>
+                                </div>
+                            </div>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                gap: '12px'
+                            }}>
                                 {columns.map(col => (
                                     <label key={col} className="checkbox">
                                         <input
@@ -280,47 +461,136 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                 </>
             )}
 
-            <div className="section">
-                <h4><Settings size={18} /> Configuration</h4>
-                <div className="form-grid">
-                    <div className="input-group">
-                        <label>Target Format</label>
-                        <select value={format} onChange={(e) => setFormat(e.target.value)}>
-                            {DATE_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                        </select>
+            {/* Format Configuration */}
+            <div className="section scale-in" style={{ marginTop: '24px', animationDelay: '0.2s', position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '4px',
+                    background: 'var(--gradient-primary)',
+                    borderRadius: '24px 24px 0 0'
+                }} />
+
+                <div style={{ paddingTop: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                        <Settings size={20} style={{ color: 'var(--primary)' }} />
+                        <div>
+                            <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>DATE FORMAT CONFIGURATION</h4>
+                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Choose your target date format</p>
+                        </div>
                     </div>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                        gap: '16px'
+                    }}>
+                        {DATE_FORMATS.map(f => (
+                            <div
+                                key={f.value}
+                                onClick={() => setFormat(f.value)}
+                                style={{
+                                    padding: '16px',
+                                    background: format === f.value ? 'var(--primary-glow)' : 'var(--input-bg)',
+                                    border: format === f.value ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: format === f.value ? 'var(--primary)' : 'var(--text-main)' }}>
+                                    {f.label}
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                    {f.example}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
                     {format === "custom" && (
-                        <div className="input-group">
-                            <label>Custom Python strftime</label>
-                            <input value={customFormat} onChange={(e) => setCustomFormat(e.target.value)} placeholder="%Y-%m-%d %H:%M:%S" />
+                        <div className="input-group" style={{ marginTop: '20px' }}>
+                            <label>Custom Python strftime Format</label>
+                            <input
+                                value={customFormat}
+                                onChange={(e) => setCustomFormat(e.target.value)}
+                                placeholder="%Y-%m-%d %H:%M:%S"
+                                style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                            />
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                Use Python strftime codes: %Y (year), %m (month), %d (day), %H (hour), %M (minute), %S (second)
+                            </p>
+                        </div>
+                    )}
+
+                    {selectedFormat && selectedFormat.value !== "custom" && (
+                        <div style={{
+                            marginTop: '20px',
+                            padding: '12px 16px',
+                            background: 'var(--input-bg)',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            fontSize: '13px',
+                            color: 'var(--text-muted)'
+                        }}>
+                            <Globe size={16} />
+                            <span>Selected format: <strong style={{ color: 'var(--primary)' }}>{selectedFormat.label}</strong> → Example: <code style={{ background: 'var(--card-bg)', padding: '2px 8px', borderRadius: '4px' }}>{selectedFormat.example}</code></span>
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex-responsive" style={{ margin: "40px 0" }}>
+            {/* Convert Button */}
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0' }}>
                 <button
-                    className="primary"
                     onClick={mode === "paste" ? handleConvertPaste : handleConvertFile}
                     disabled={loading}
-                    style={{ padding: "16px 48px", fontSize: "16px" }}
+                    style={{
+                        padding: '18px 60px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        borderRadius: '16px',
+                        background: loading ? 'var(--text-muted)' : 'var(--gradient-primary)',
+                        border: 'none',
+                        color: 'white',
+                        boxShadow: loading ? 'none' : 'var(--shadow-xl)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        transition: 'all 0.3s ease'
+                    }}
                 >
-                    {loading ? <Loader2 className="animate-spin" /> : <Zap />}
-                    {mode === "paste" ? "Standardize Text" : "Standardize Files"}
+                    {loading ? (
+                        <>
+                            <Loader2 className="animate-spin" size={20} />
+                            Converting...
+                        </>
+                    ) : (
+                        <>
+                            <Zap size={20} />
+                            {mode === "paste" ? "Convert Dates" : "Process Files"}
+                        </>
+                    )}
                 </button>
             </div>
 
-            {output && mode === "paste" && (
-                <div className="page-enter">
-                    <div className="flex-responsive" style={{ marginBottom: 12 }}>
-                        <h4 style={{ margin: 0 }}><Clipboard size={18} /> Results</h4>
-                        <div className="inline" style={{ gap: 8 }}>
-                            <button className="secondary" onClick={handleCopy}><Clipboard size={14} /> Copy</button>
-                        </div>
-                    </div>
-                    <textarea rows={10} value={output} readOnly />
+            {/* Pro Tip */}
+            <div className="tool-help-section scale-in" style={{ animationDelay: '0.3s' }}>
+                <div className="tool-help-icon">
+                    <Sparkles size={24} />
                 </div>
-            )}
+                <div className="tool-help-content">
+                    <h5>Pro Tip: Batch Processing</h5>
+                    <p>
+                        In <strong>File Mode</strong>, you can select multiple date columns at once to convert them all in a single operation.
+                        The tool automatically detects various date formats and standardizes them to your chosen format.
+                    </p>
+                </div>
+            </div>
         </div>
     );
 }
