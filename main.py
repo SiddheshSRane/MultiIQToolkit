@@ -176,28 +176,34 @@ async def log_activity(user_id: str, action: str, filename: str, file_url: Optio
 def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Optional[str] = None) -> pd.DataFrame:
     """
     Standardizes reading a DataFrame from CSV or Excel with robustness.
-    Accepts file_obj which can be bytes buffer or file-like object.
     """
     is_csv = filename.lower().endswith(".csv")
     
-    # Ensure we are at the start of the file
-    if hasattr(file_obj, 'seek'):
-        file_obj.seek(0)
-        
+    # Crucial: Load into BytesIO to ensure it's seekable and in memory for speed
+    if hasattr(file_obj, 'read'):
+        content = file_obj.read()
+        buffer = io.BytesIO(content)
+    else:
+        buffer = io.BytesIO(file_obj) if isinstance(file_obj, bytes) else file_obj
+
     if is_csv:
-        try:
-            return pd.read_csv(file_obj, nrows=nrows, encoding='utf-8-sig', engine='c')
-        except Exception:
+        encodings = ['utf-8-sig', 'latin1', 'utf-16', 'cp1252']
+        for enc in encodings:
             try:
-                if hasattr(file_obj, 'seek'): file_obj.seek(0)
-                return pd.read_csv(file_obj, nrows=nrows, encoding='latin1', engine='c')
+                buffer.seek(0)
+                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine='c')
             except Exception:
-                if hasattr(file_obj, 'seek'): file_obj.seek(0)
-                return pd.read_csv(file_obj, nrows=nrows)
+                continue
+        # Fallback to default
+        buffer.seek(0)
+        return pd.read_csv(buffer, nrows=nrows)
     else:
         try:
-            xls = pd.ExcelFile(file_obj)
-            active_sheet = sheet_name or xls.sheet_names[0]
+            buffer.seek(0)
+            xls = pd.ExcelFile(buffer)
+            active_sheet = sheet_name or (xls.sheet_names[0] if xls.sheet_names else None)
+            if active_sheet is None:
+                return pd.DataFrame()
             return pd.read_excel(xls, sheet_name=active_sheet, nrows=nrows, dtype=str)
         except Exception as e:
             logger.error(f"Excel read error ({filename}): {e}")
@@ -476,40 +482,6 @@ async def export_datetime_xlsx(payload: DateTimeConvertRequest, user=Depends(get
         }
     )
 
-def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Optional[int] = None) -> pd.DataFrame:
-    """
-    Standardizes reading a DataFrame from CSV or Excel with robustness.
-    """
-    is_csv = filename.lower().endswith(".csv")
-    
-    # Crucial: Load into BytesIO to ensure it's seekable and in memory for speed
-    if hasattr(file_obj, 'read'):
-        content = file_obj.read()
-        buffer = io.BytesIO(content)
-    else:
-        buffer = io.BytesIO(file_obj) if isinstance(file_obj, bytes) else file_obj
-
-    if is_csv:
-        encodings = ['utf-8-sig', 'latin1', 'utf-16', 'cp1252']
-        for enc in encodings:
-            try:
-                buffer.seek(0)
-                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine='c')
-            except Exception:
-                continue
-        # Fallback to default
-        buffer.seek(0)
-        return pd.read_csv(buffer, nrows=nrows)
-    else:
-        try:
-            buffer.seek(0)
-            xls = pd.ExcelFile(buffer)
-            active_sheet = sheet_name or xls.sheet_names[0]
-            return pd.read_excel(xls, sheet_name=active_sheet, nrows=nrows, dtype=str)
-        except Exception as e:
-            logger.error(f"Excel read error ({filename}): {e}")
-            return pd.DataFrame()
-
 
 # =====================
 # FILE PREVIEW
@@ -541,23 +513,24 @@ async def preview_columns(
                 pass
 
         # Robustly handle types that aren't JSON serializable (NaN, Timestamp, etc)
-        headers = [str(c) for c in df.columns]
-        rows = []
-        for _, row in df.iterrows():
-            processed_row = []
-            for val in row:
-                if pd.isna(val):
-                    processed_row.append("")
-                else:
-                    processed_row.append(str(val))
-            rows.append(processed_row)
+        # Use where(notnull) to convert NaN to None (null in JSON)
+        df_clean = df.where(pd.notnull(df), None)
+        
+        headers = [str(c) for c in df_clean.columns]
+        rows = df_clean.values.tolist()
+        
+        # Final pass to ensure everything is serializable
+        # (Already mostly covered by None, but good for security)
+        serializable_rows = []
+        for row in rows:
+            serializable_rows.append([ (None if r is None else str(r)) for r in row ])
 
         return {
             "columns": headers,
             "sheets": sheets,
             "sample": {
                 "headers": headers,
-                "rows": rows
+                "rows": serializable_rows
             }
         }
     except Exception as e:
