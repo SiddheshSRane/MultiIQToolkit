@@ -446,9 +446,10 @@ async def convert_datetime_text_api(payload: DateTimeConvertRequest, user=Depend
         await log_activity(user.id, "DateTime Conversion (Text)", "clipboard")
 
     return {
-        "result": result,
+    "result": result,
         "stats": stats
     }
+
 
 @app.post("/api/convert/datetime/export-xlsx")
 async def export_datetime_xlsx(payload: DateTimeConvertRequest, user=Depends(get_current_user)):
@@ -475,6 +476,40 @@ async def export_datetime_xlsx(payload: DateTimeConvertRequest, user=Depends(get
         }
     )
 
+def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Optional[int] = None) -> pd.DataFrame:
+    """
+    Standardizes reading a DataFrame from CSV or Excel with robustness.
+    """
+    is_csv = filename.lower().endswith(".csv")
+    
+    # Crucial: Load into BytesIO to ensure it's seekable and in memory for speed
+    if hasattr(file_obj, 'read'):
+        content = file_obj.read()
+        buffer = io.BytesIO(content)
+    else:
+        buffer = io.BytesIO(file_obj) if isinstance(file_obj, bytes) else file_obj
+
+    if is_csv:
+        encodings = ['utf-8-sig', 'latin1', 'utf-16', 'cp1252']
+        for enc in encodings:
+            try:
+                buffer.seek(0)
+                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine='c')
+            except Exception:
+                continue
+        # Fallback to default
+        buffer.seek(0)
+        return pd.read_csv(buffer, nrows=nrows)
+    else:
+        try:
+            buffer.seek(0)
+            xls = pd.ExcelFile(buffer)
+            active_sheet = sheet_name or xls.sheet_names[0]
+            return pd.read_excel(xls, sheet_name=active_sheet, nrows=nrows, dtype=str)
+        except Exception as e:
+            logger.error(f"Excel read error ({filename}): {e}")
+            return pd.DataFrame()
+
 
 # =====================
 # FILE PREVIEW
@@ -486,37 +521,48 @@ async def preview_columns(
     sheet_name: str = Form(None),
 ):
     try:
-        # Optimization: Pass file.file directly to pandas to avoid reading whole file into memory
-        # pandas functions can handle SpooledTemporaryFile
+        # Read file once into memory for reliability across different server environments
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+            
+        df = read_df(io.BytesIO(contents), file.filename, nrows=5, sheet_name=sheet_name)
         
-        # Note: We do not need to await file.read() here which saves memory for large files
-        
-        df = read_df(file.file, file.filename, nrows=5, sheet_name=sheet_name)
-        
-        # If it was an Excel file, we might want to return sheet list too
+        if df.empty and not file.filename.lower().endswith(".csv"):
+             # Could be an empty sheet or read failure
+             pass
+
         sheets = None
         if not file.filename.lower().endswith(".csv"):
             try:
-                # Seek back to start for sheet reading
-                file.file.seek(0)
-                xls = pd.ExcelFile(file.file)
+                xls = pd.ExcelFile(io.BytesIO(contents))
                 sheets = xls.sheet_names
             except:
                 pass
 
-        sample_data = {
-            "headers": [str(c) for c in df.columns],
-            "rows": df.astype(str).replace('nan', '').values.tolist()
-        }
-        
+        # Robustly handle types that aren't JSON serializable (NaN, Timestamp, etc)
+        headers = [str(c) for c in df.columns]
+        rows = []
+        for _, row in df.iterrows():
+            processed_row = []
+            for val in row:
+                if pd.isna(val):
+                    processed_row.append("")
+                else:
+                    processed_row.append(str(val))
+            rows.append(processed_row)
+
         return {
-            "columns": sample_data["headers"],
+            "columns": headers,
             "sheets": sheets,
-            "sample": sample_data
+            "sample": {
+                "headers": headers,
+                "rows": rows
+            }
         }
     except Exception as e:
-        logger.error(f"Preview error: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+        logger.error(f"Preview error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
 
 
 # =====================
