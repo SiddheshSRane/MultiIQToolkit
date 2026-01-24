@@ -1,14 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { fetchWithAuth } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     ClipboardList,
-    File,
-    BarChart,
+    File as FileIcon,
     Settings,
-    Rocket,
     Loader2,
-    Eye
+    Eye,
+    Search,
+    Zap,
+    Sparkles
 } from "lucide-react";
+import { downloadBlob } from "../utils/download";
+import { parseApiError } from "../utils/apiError";
+import { useNotifications } from "../contexts/NotificationContext";
 
 type MappingRule = {
     type: "column" | "static" | "none";
@@ -28,6 +33,7 @@ interface TemplateMapperProps {
 }
 
 export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
+    const { notify } = useNotifications();
     const [templateFile, setTemplateFile] = useState<File | null>(null);
     const [dataFile, setDataFile] = useState<File | null>(null);
 
@@ -38,234 +44,250 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     const [preview, setPreview] = useState<PreviewData | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // UI State for filtering
     const [searchTerm, setSearchTerm] = useState("");
-    const [showOnlyUnmapped, setShowOnlyUnmapped] = useState(false);
 
-    // Load Template Headers
-    const loadTemplateHeaders = async (file: File) => {
+    const loadTemplateHeaders = useCallback(async (file: File) => {
         const fd = new FormData();
         fd.append("file", file);
         try {
-            const res = await fetch("/api/file/template-headers", { method: "POST", body: fd });
+            const res = await fetchWithAuth("/api/file/template-headers", { method: "POST", body: fd });
+            if (!res.ok) throw new Error("Failed to load template headers");
             const data = await res.json();
             setTemplateHeaders(data.headers);
 
-            // Initialize mapping
             const newMapping: Record<string, MappingRule> = {};
             data.headers.forEach((h: string) => {
                 newMapping[h] = { type: "none", value: "", transform: "none", required: false };
             });
             setMapping(newMapping);
-        } catch (e) { console.error(e); }
-    };
+        } catch (e) {
+            console.error("Template error:", e);
+            notify('error', 'Template Error', "Could not extract headers from template.");
+        }
+    }, [notify]);
 
-    // Load Data Headers
-    const loadDataHeaders = async (file: File) => {
+    const loadDataHeaders = useCallback(async (file: File) => {
         const fd = new FormData();
         fd.append("file", file);
         try {
-            const res = await fetch("/api/file/template-headers", { method: "POST", body: fd });
+            const res = await fetchWithAuth("/api/file/template-headers", { method: "POST", body: fd });
+            if (!res.ok) {
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
             const data = await res.json();
             setDataHeaders(data.headers);
-        } catch (e) { console.error(e); }
-    };
-
-    const updateMapping = (tCol: string, rule: MappingRule) => {
-        setMapping((prev: Record<string, MappingRule>) => ({ ...prev, [tCol]: rule }));
-    };
-
-    const fetchPreview = async () => {
-        if (!dataFile || templateHeaders.length === 0) return;
-        setLoading(true);
-        const fd = new FormData();
-        fd.append("data_file", dataFile);
-        fd.append("template_headers", JSON.stringify(templateHeaders));
-        fd.append("mapping_json", JSON.stringify(mapping));
-
-        try {
-            const res = await fetch("/api/file/template-preview", { method: "POST", body: fd });
-            const data = await res.json();
-            setPreview(data);
         } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+            console.error("Data error:", e);
+            notify('error', 'Data Error', "Failed to load source headers.");
         }
+    }, [notify]);
+
+    useEffect(() => {
+        if (templateFile) loadTemplateHeaders(templateFile);
+        else setTemplateHeaders([]);
+    }, [templateFile, loadTemplateHeaders]);
+
+    useEffect(() => {
+        if (dataFile) loadDataHeaders(dataFile);
+        else setDataHeaders([]);
+    }, [dataFile, loadDataHeaders]);
+
+    const updateMapping = (col: string, rule: MappingRule) => {
+        setMapping(prev => ({ ...prev, [col]: rule }));
     };
 
-    // Auto-preview useEffect with debounce
-    useEffect(() => {
-        if (!dataFile || templateHeaders.length === 0) return;
-
-        const timer = setTimeout(() => {
-            fetchPreview();
-        }, 800); // 800ms debounce
-
-        return () => clearTimeout(timer);
-    }, [mapping, dataFile, templateHeaders]);
-
-    const handleDownload = async () => {
-        if (!dataFile || templateHeaders.length === 0) return;
-
-        // Validation: check for required columns that are unmapped
-        const missingRequired = Object.entries(mapping).filter(([_, rule]) => rule.required && rule.type === "none");
-        if (missingRequired.length > 0) {
-            alert(`The following required columns are unmapped: ${missingRequired.map(([h]) => h).join(", ")}`);
+    const handleDownload = useCallback(async () => {
+        if (!templateFile || !dataFile) {
+            notify('error', 'Files Required', "Please provide both template and data files.");
             return;
         }
 
         setLoading(true);
-        const fd = new FormData();
-        fd.append("data_file", dataFile);
-        fd.append("template_headers", JSON.stringify(templateHeaders));
-        fd.append("mapping_json", JSON.stringify(mapping));
+        notify('loading', 'Mapping Data', 'Applying field mappings...');
 
         try {
-            const res = await fetch("/api/file/template-map", { method: "POST", body: fd });
+            const fd = new FormData();
+            fd.append("template_headers", JSON.stringify(templateHeaders));
+            fd.append("data_file", dataFile);
+            fd.append("mapping_json", JSON.stringify(mapping));
+
+            const res = await fetchWithAuth("/api/file/template-map", { method: "POST", body: fd });
+            if (!res.ok) {
+                const errorMessage = await parseApiError(res);
+                throw new Error(errorMessage);
+            }
+
             const blob = await res.blob();
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            const outName = `${templateFile?.name.split('.')[0] || 'template'}_mapped_${Date.now()}.xlsx`;
-            link.download = outName;
-            link.click();
-            if (onLogAction) onLogAction("Template Mapping", outName, blob);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
+            downloadBlob(blob, `mapped_${dataFile.name}`);
+            notify('success', 'Mapping Complete', 'Your mapped file is ready.');
+            if (onLogAction) onLogAction("Map Template", `mapped_${dataFile.name}`, blob);
+        } catch (e) {
+            console.error("Mapping error:", e);
+            notify('error', 'Mapping Failed', e instanceof Error ? e.message : "An error occurred.");
+        } finally {
+            setLoading(false);
+        }
+    }, [templateFile, dataFile, templateHeaders, mapping, onLogAction, notify]);
+
+    const generatePreview = useCallback(async () => {
+        if (!templateFile || !dataFile || templateHeaders.length === 0) return;
+        setLoading(true);
+        try {
+            const fd = new FormData();
+            fd.append("template_headers", JSON.stringify(templateHeaders));
+            fd.append("data_file", dataFile);
+            fd.append("mapping_json", JSON.stringify(mapping));
+
+            const res = await fetchWithAuth("/api/file/template-preview", { method: "POST", body: fd });
+            const data = await res.json();
+            if (data.headers) setPreview(data);
+        } catch (e) {
+            console.error("Preview error:", e);
+        } finally {
+            setLoading(false);
+        }
+    }, [templateFile, dataFile, templateHeaders, mapping]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (templateFile && dataFile) generatePreview();
+        }, 1200);
+        return () => clearTimeout(timer);
+    }, [templateFile, dataFile, mapping, generatePreview]);
+
+    const filteredHeaders = templateHeaders.filter(h => h.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
-        <div className="app glass-card">
-            <h2 style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <ClipboardList className="text-primary" />
-                Template Column Mapper
-            </h2>
-            <p className="desc">
-                Map source data columns to a template schema and generate a perfectly formatted Excel output.
-            </p>
-
-            <div className="form-grid">
-                <div className="section">
-                    <h4><File size={18} /> 1. Template Schema</h4>
-                    <FileUpload
-                        files={templateFile ? [templateFile] : []}
-                        onFilesSelected={(files) => {
-                            if (files[0]) {
-                                setTemplateFile(files[0]);
-                                loadTemplateHeaders(files[0]);
-                            }
-                        }}
-                    />
+        <div className="app page-enter">
+            {/* File Upload Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+                <div className="section slide-in-left">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                        <div style={{
+                            width: '40px',
+                            height: '40px',
+                            background: 'var(--gradient-info)',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white'
+                        }}>
+                            <ClipboardList size={20} />
+                        </div>
+                        <div>
+                            <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>STEP 1: TEMPLATE</h4>
+                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Upload target format file</p>
+                        </div>
+                    </div>
+                    <FileUpload files={templateFile ? [templateFile] : []} onFilesSelected={(fs) => setTemplateFile(fs[0] || null)} />
                 </div>
-                <div className="section">
-                    <h4><BarChart size={18} /> 2. Source Data</h4>
-                    <FileUpload
-                        files={dataFile ? [dataFile] : []}
-                        onFilesSelected={(files) => {
-                            if (files[0]) {
-                                setDataFile(files[0]);
-                                loadDataHeaders(files[0]);
-                            }
-                        }}
-                    />
+
+                <div className="section slide-in-right">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                        <div style={{
+                            width: '40px',
+                            height: '40px',
+                            background: 'var(--gradient-success)',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white'
+                        }}>
+                            <FileIcon size={20} />
+                        </div>
+                        <div>
+                            <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>STEP 2: SOURCE DATA</h4>
+                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Upload data to map</p>
+                        </div>
+                    </div>
+                    <FileUpload files={dataFile ? [dataFile] : []} onFilesSelected={(fs) => setDataFile(fs[0] || null)} />
                 </div>
             </div>
 
+            {/* Mapping Configuration */}
             {templateHeaders.length > 0 && (
-                <div className="section">
-                    <div className="flex-responsive" style={{ marginBottom: 16 }}>
-                        <h4><Settings size={18} /> 3. Map Columns</h4>
-                        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                            <div className="input-group" style={{ marginBottom: 0 }}>
+                <div className="section slide-in-left" style={{ animationDelay: '0.1s', marginTop: '24px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        background: 'var(--gradient-primary)',
+                        borderRadius: '24px 24px 0 0'
+                    }} />
+
+                    <div style={{ paddingTop: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Settings size={20} style={{ color: 'var(--primary)' }} />
+                                <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>STEP 3: FIELD MAPPING</h4>
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                background: 'var(--input-bg)',
+                                padding: '8px 12px',
+                                borderRadius: '12px',
+                                border: '1px solid var(--border-color)'
+                            }}>
+                                <Search size={14} style={{ color: 'var(--text-muted)' }} />
                                 <input
-                                    type="text"
-                                    placeholder="Search columns..."
-                                    style={{ padding: "6px 12px", fontSize: "13px", minWidth: "200px" }}
+                                    placeholder="Search fields..."
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    style={{ background: 'transparent', border: 'none', padding: 0, fontSize: '13px', width: '140px', outline: 'none' }}
                                 />
                             </div>
-                            <label className="checkbox" style={{ fontSize: "13px", whiteSpace: "nowrap" }}>
-                                <input type="checkbox" checked={showOnlyUnmapped} onChange={(e) => setShowOnlyUnmapped(e.target.checked)} />
-                                Only Unmapped
-                            </label>
                         </div>
-                    </div>
 
-                    <div className="table-container" style={{ marginTop: 20 }}>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th style={{ width: "40px" }}>Req.</th>
-                                    <th>Template Column</th>
-                                    <th>Source Selection</th>
-                                    <th>Value / Column Name</th>
-                                    <th>Transformation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {templateHeaders
-                                    .filter(h => h.toLowerCase().includes(searchTerm.toLowerCase()))
-                                    .filter(h => {
-                                        if (!showOnlyUnmapped) return true;
-                                        const rule = mapping[h];
-                                        if (!rule || rule.type === "none") return true;
-                                        if (rule.type === "column" && !rule.value) return true;
-                                        if (rule.type === "static" && !rule.value) return true;
-                                        return false;
-                                    })
-                                    .map((tCol: string) => (
-                                        <tr key={tCol} style={{ background: mapping[tCol]?.required && mapping[tCol]?.type === "none" ? "rgba(239, 68, 68, 0.05)" : "transparent" }}>
+                        <div className="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Target Field</th>
+                                        <th>Mapping Type</th>
+                                        <th>Source / Value</th>
+                                        <th>Transform</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredHeaders.map(tCol => (
+                                        <tr key={tCol}>
+                                            <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{tCol}</td>
                                             <td>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={mapping[tCol]?.required || false}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], required: e.target.checked })}
-                                                    title="Mark as required"
-                                                />
-                                            </td>
-                                            <td style={{ fontWeight: 600 }}>
-                                                {tCol}
-                                                {mapping[tCol]?.required && <span style={{ color: "var(--primary)", marginLeft: 4 }}>*</span>}
-                                            </td>
-                                            <td>
-                                                <select
-                                                    style={{ padding: "4px 8px" }}
-                                                    value={mapping[tCol]?.type || "none"}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], type: e.target.value as any, value: "" })}
-                                                >
-                                                    <option value="none">Unmapped (Blank)</option>
-                                                    <option value="column">Source Column</option>
+                                                <select value={mapping[tCol]?.type} onChange={(e) => updateMapping(tCol, { ...mapping[tCol], type: e.target.value as any, value: "" })}>
+                                                    <option value="none">Omit / Clear</option>
+                                                    <option value="column">Map to Column</option>
                                                     <option value="static">Static Value</option>
                                                 </select>
                                             </td>
                                             <td>
                                                 {mapping[tCol]?.type === "column" && (
-                                                    <select
-                                                        value={mapping[tCol]?.value}
-                                                        onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}
-                                                    >
-                                                        <option value="">Select Column...</option>
-                                                        {dataHeaders.map((dCol: string) => <option key={dCol} value={dCol}>{dCol}</option>)}
+                                                    <select value={mapping[tCol]?.value} onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}>
+                                                        <option value="">-- Choose Column --</option>
+                                                        {dataHeaders.map(d => <option key={d} value={d}>{d}</option>)}
                                                     </select>
                                                 )}
                                                 {mapping[tCol]?.type === "static" && (
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Enter static value..."
-                                                        value={mapping[tCol]?.value}
-                                                        onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })}
-                                                    />
+                                                    <input type="text" placeholder="Enter value..." value={mapping[tCol]?.value} onChange={(e) => updateMapping(tCol, { ...mapping[tCol], value: e.target.value })} />
+                                                )}
+                                                {mapping[tCol]?.type === "none" && (
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>—</span>
                                                 )}
                                             </td>
                                             <td>
                                                 <select
                                                     disabled={mapping[tCol]?.type !== "column"}
-                                                    value={mapping[tCol]?.transform || "none"}
-                                                    onChange={(e) => updateMapping(tCol, { ...mapping[tCol], transform: e.target.value as any })}
+                                                    value={mapping[tCol]?.transform}
+                                                    onChange={e => updateMapping(tCol, { ...mapping[tCol], transform: e.target.value as any })}
                                                 >
-                                                    <option value="none">None</option>
-                                                    <option value="trim">Trim</option>
+                                                    <option value="none">Original</option>
+                                                    <option value="trim">Trim Whitespace</option>
                                                     <option value="uppercase">UPPERCASE</option>
                                                     <option value="lowercase">lowercase</option>
                                                     <option value="titlecase">Title Case</option>
@@ -273,42 +295,84 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
                                             </td>
                                         </tr>
                                     ))}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {templateHeaders.length > 0 && dataFile && (
-                <div className="section" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                    <button className="primary" onClick={handleDownload} disabled={loading}>
-                        {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <><Rocket size={18} /> Generate & Download Excel</>}
-                    </button>
-                    {loading && <p className="desc" style={{ margin: 0, fontSize: "12px" }}>Updating preview...</p>}
-                </div>
-            )}
+            {/* Generate Button */}
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '40px 0' }}>
+                <button
+                    onClick={handleDownload}
+                    disabled={loading || !templateFile || !dataFile}
+                    style={{
+                        padding: '18px 60px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        borderRadius: '16px',
+                        background: loading ? 'var(--text-muted)' : 'var(--gradient-primary)',
+                        border: 'none',
+                        color: 'white',
+                        boxShadow: loading ? 'none' : 'var(--shadow-xl)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        transition: 'all 0.3s ease'
+                    }}
+                >
+                    {loading ? (
+                        <>
+                            <Loader2 className="animate-spin" size={20} />
+                            Mapping...
+                        </>
+                    ) : (
+                        <>
+                            <Zap size={20} />
+                            Generate Mapped File
+                        </>
+                    )}
+                </button>
+            </div>
 
+            {/* Preview */}
             {preview && (
-                <div className="section">
-                    <h4><Eye size={18} /> Preview (First 5 Rows)</h4>
+                <div className="section scale-in" style={{ animationDelay: '0.2s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                        <Eye size={20} style={{ color: 'var(--primary)' }} />
+                        <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>PREVIEW</h4>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>(First 5 rows)</span>
+                    </div>
                     <div className="table-container">
                         <table>
                             <thead>
-                                <tr>
-                                    {preview.headers.map((h, i) => <th key={i}>{h}</th>)}
-                                </tr>
+                                <tr>{preview.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
                             </thead>
                             <tbody>
-                                {preview.rows.map((row: string[], i: number) => (
-                                    <tr key={i}>
-                                        {row.map((cell: string, j: number) => <td key={j}>{cell}</td>)}
-                                    </tr>
+                                {preview.rows.map((row, i) => (
+                                    <tr key={i}>{row.map((cell, j) => <td key={j}>{cell}</td>)}</tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
+
+            {/* Pro Tip */}
+            <div className="tool-help-section scale-in" style={{ animationDelay: '0.3s' }}>
+                <div className="tool-help-icon">
+                    <Sparkles size={24} />
+                </div>
+                <div className="tool-help-content">
+                    <h5>Pro Tip: Field Mapping Strategies</h5>
+                    <p>
+                        Use <strong>Map to Column</strong> to transfer data from your source file.
+                        Use <strong>Static Value</strong> to fill fields with constant values (like dates, IDs, or default text).
+                        Apply transformations to clean data during the mapping process (trim whitespace, change case, etc.).
+                    </p>
+                </div>
+            </div>
         </div>
     );
 }

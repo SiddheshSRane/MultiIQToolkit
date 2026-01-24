@@ -217,32 +217,31 @@ def convert_dates_text(text: str, target_format: str) -> str:
         if not text:
             return ""
 
+        # Normalize newlines and split
         lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-        results = []
-
+        
         # Target format normalization
         fmt = target_format
         if fmt == "ISO 8601":
             fmt = "%Y-%m-%dT%H:%M:%S"
 
-        for line in lines:
-            if not line.strip():
-                results.append("")
-                continue
-            
-            try:
-                # Try parsing with format='mixed' for high coverage
-                dt = pd.to_datetime(line, errors="coerce", format="mixed", dayfirst=True)
-                
-                if pd.notna(dt):
-                    results.append(dt.strftime(fmt))
-                else:
-                    results.append(line)  # Preserve invalid as-is
-            except Exception:
-                results.append(line)
-
-        logger.info(f"convert_dates_text: processed {len(lines)} lines")
-        return "\n".join(results)
+        # Vectorized conversion using pandas
+        s = pd.Series(lines)
+        # Filter out obvious empties to speed up pd.to_datetime
+        mask = s.str.strip() != ""
+        
+        if mask.any():
+            # Try parsing with format='mixed' for high coverage
+            dt_series = pd.to_datetime(s[mask], errors="coerce", format="mixed", dayfirst=True)
+            formatted = dt_series.dt.strftime(fmt)
+            # Fill back into original data, preserving unparseable as original
+            results = formatted.fillna(s[mask])
+            # Reconstruct the full list including empties
+            final_results = s.copy()
+            final_results[mask] = results
+            return "\n".join(final_results)
+        
+        return "\n".join(lines)
 
     except Exception as e:
         logger.error(f"Error in convert_dates_text: {str(e)}", exc_info=True)

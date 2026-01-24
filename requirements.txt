@@ -5,3 +5,6 @@ python-multipart
 aiofiles
 pandas
 openpyxl
+python-dotenv
+requests
+httpx

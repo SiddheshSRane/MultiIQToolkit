@@ -61,14 +61,17 @@ def merge_files_advanced(
                 
                 # Data cleaning
                 if trim_whitespace:
-                    df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
+                    for col in df.select_dtypes(include=['object']).columns:
+                        df[col] = df[col].str.strip()
                 
-                if casing == "upper":
-                    df = df.apply(lambda x: x.str.upper() if x.dtype == "object" else x)
-                elif casing == "lower":
-                    df = df.apply(lambda x: x.str.lower() if x.dtype == "object" else x)
-                elif casing == "title":
-                    df = df.apply(lambda x: x.str.title() if x.dtype == "object" else x)
+                if casing != "none":
+                    for col in df.select_dtypes(include=['object']).columns:
+                        if casing == "upper":
+                            df[col] = df[col].str.upper()
+                        elif casing == "lower":
+                            df[col] = df[col].str.lower()
+                        elif casing == "title":
+                            df[col] = df[col].str.title()
 
                 dfs.append(df)
 
