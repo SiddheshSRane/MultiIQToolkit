@@ -67,11 +67,22 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const [allSheets] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const VERCEL_PAYLOAD_LIMIT = 4.5 * 1024 * 1024; // 4.5MB
+  const PREVIEW_SLICE_SIZE = 1 * 1024 * 1024; // 1MB for preview
+
+  const sliceFileForPreview = useCallback((file: File): Blob | File => {
+    if (file.name.toLowerCase().endsWith('.csv') && file.size > PREVIEW_SLICE_SIZE) {
+      return file.slice(0, PREVIEW_SLICE_SIZE);
+    }
+    return file;
+  }, []);
+
   // Preview Fetching Logic
   const fetchPreview = useCallback(async (file: File, sheetName?: string | null): Promise<PreviewResponse | null> => {
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      const previewFile = sliceFileForPreview(file);
+      formData.append("file", previewFile);
       if (sheetName) formData.append("sheet_name", sheetName);
 
       const response = await fetchWithAuth(API_ENDPOINTS.PREVIEW, {
@@ -130,6 +141,12 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const handleApply = useCallback(async () => {
     if (files.length === 0) {
       notify('error', 'Selection Required', "Please upload at least one file.");
+      return;
+    }
+
+    const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
+    if (largeFile) {
+      notify('error', 'File Too Large', `"${largeFile.name}" is too large for the platform (Limit: 4.5MB). Please compress or split the file.`);
       return;
     }
 

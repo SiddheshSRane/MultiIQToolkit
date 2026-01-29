@@ -8,8 +8,9 @@ file_path = "d:/Git/MultiIQToolkit/test_preview.csv"
 # The context says `python main.py` is running, likely on port 8000 (uvicorn default).
 
 try:
+    file_path = "d:/Git/MultiIQToolkit/test_preview.xlsx"
     with open(file_path, "rb") as f:
-        files = {"file": ("test_preview.csv", f, "text/csv")}
+        files = {"file": ("test_preview.xlsx", f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
         response = requests.post(url, files=files)
     
     print(f"Status Code: {response.status_code}")

@@ -51,11 +51,25 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
     const [resultBlob, setResultBlob] = useState<Blob | null>(null);
     const [resultFilename, setResultFilename] = useState<string | null>(null);
 
+    const VERCEL_PAYLOAD_LIMIT = 4.5 * 1024 * 1024; // 4.5MB
+    const PREVIEW_SLICE_SIZE = 1 * 1024 * 1024; // 1MB for preview
+
+    const sliceFileForPreview = useCallback((file: File): Blob | File => {
+        if (file.name.toLowerCase().endsWith('.csv') && file.size > PREVIEW_SLICE_SIZE) {
+            return file.slice(0, PREVIEW_SLICE_SIZE);
+        }
+        return file;
+    }, []);
+
+
     const fetchPreview = useCallback(async (fs: File[], strat: string, caseIn: boolean, sheets: boolean) => {
         try {
             setLoading(true);
             const fd = new FormData();
-            fs.forEach((f) => fd.append("files", f));
+            fs.forEach((f) => {
+                const previewFile = sliceFileForPreview(f);
+                fd.append("files", previewFile);
+            });
             fd.append("strategy", strat);
             fd.append("case_insensitive", String(caseIn));
             fd.append("all_sheets", String(sheets));
@@ -80,7 +94,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
         } finally {
             setLoading(false);
         }
-    }, [notify]);
+    }, [notify, sliceFileForPreview]);
 
     const handleFileChange = useCallback(async (selectedFiles: File[]) => {
         setFiles(selectedFiles);
@@ -101,12 +115,17 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             return;
         }
 
+        const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
+        if (largeFile) {
+            notify('error', 'File Too Large', `"${largeFile.name}" is too large for the platform (Limit: 4.5MB). Please compress or split the file.`);
+            return;
+        }
+
         setLoading(true);
         const toastId = notify('loading', 'Merging Files', 'Consolidating datasets...');
 
         try {
             const fd = new FormData();
-            // ... (form data population) ...
             files.forEach((f) => fd.append("files", f));
             fd.append("selected_columns", selectedCols.join(","));
             fd.append("strategy", strategy);
@@ -149,7 +168,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             dismiss(toastId);
             setLoading(false);
         }
-    }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinType, joinKey, onLogAction, notify, dismiss]);
+    }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinKey, onLogAction, notify, dismiss, VERCEL_PAYLOAD_LIMIT]);
 
     const toggleColumn = useCallback((col: string) => {
         setSelectedCols(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]);
