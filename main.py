@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
+import traceback
 from pydantic import BaseModel
 
 from tools.add_modify import bulk_rename_columns, remove_columns, replace_blank_values, convert_datetime_column
@@ -84,13 +85,15 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     exc_type = type(exc).__name__
-    logger.error(f"Unhandled error [{exc_type}] at {request.url.path}: {str(exc)}", exc_info=True)
+    tb = traceback.format_exc()
+    logger.error(f"Unhandled error [{exc_type}] at {request.url.path}: {str(exc)}\n{tb}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
             "error": "An internal server error occurred.",
             "type": exc_type,
             "detail": str(exc),
+            "traceback": tb,
             "path": request.url.path
         },
     )
