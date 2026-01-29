@@ -309,8 +309,8 @@ with tab_files:
                 f.seek(0)
                 if name.lower().endswith(".csv"):
                     try:
-                        # Optimization: Use pyarrow engine
-                        df = pd.read_csv(f, nrows=1, encoding='utf-8-sig', engine='pyarrow')
+                        # Reverting to 'c' engine for Vercel/bundle size compliance
+                        df = pd.read_csv(f, nrows=1, encoding='utf-8-sig', engine='c')
                     except Exception:
                         f.seek(0)
                         df = pd.read_csv(f, nrows=1, encoding='latin1', engine='c')
@@ -324,8 +324,8 @@ with tab_files:
                     f.seek(0)
                     if name.lower().endswith(".csv"):
                         try:
-                            # Optimization: Use pyarrow engine
-                            preview_df = pd.read_csv(f, nrows=5, encoding='utf-8-sig', engine='pyarrow')
+                            # Reverting to 'c' engine for Vercel/bundle size compliance
+                            preview_df = pd.read_csv(f, nrows=5, encoding='utf-8-sig', engine='c')
                         except Exception:
                             f.seek(0)
                             preview_df = pd.read_csv(f, nrows=5, encoding='latin1', engine='c')
@@ -384,8 +384,8 @@ with tab_files:
             file.seek(0)
 
             if is_csv:
-                # Optimization: Use pyarrow engine
-                df = pd.read_csv(file, nrows=100, engine='pyarrow')
+                # Reverting to 'c' engine for Vercel/bundle size compliance
+                df = pd.read_csv(file, nrows=100, engine='c')
                 sheet = None
             else:
                 xls = pd.ExcelFile(file)
@@ -428,8 +428,8 @@ with tab_files:
             file.seek(0)
 
             if is_csv:
-                # Optimization: Use pyarrow engine
-                df = pd.read_csv(file, nrows=100, engine='pyarrow')
+                # Reverting to 'c' engine for Vercel/bundle size compliance
+                df = pd.read_csv(file, nrows=100, engine='c')
                 sheet = None
             else:
                 xls = pd.ExcelFile(file)
@@ -475,8 +475,8 @@ with tab_files:
             file.seek(0)
 
             if is_csv:
-                # Optimization: Use pyarrow engine
-                df = pd.read_csv(file, nrows=100, engine='pyarrow')
+                # Reverting to 'c' engine for Vercel/bundle size compliance
+                df = pd.read_csv(file, nrows=100, engine='c')
                 sheet = None
             else:
                 xls = pd.ExcelFile(file)

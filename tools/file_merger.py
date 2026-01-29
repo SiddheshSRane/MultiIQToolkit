@@ -34,8 +34,8 @@ def merge_files_advanced(
             if is_csv:
                 try:
                     buffer.seek(0)
-                    # Optimization: Use pyarrow engine for high performance
-                    df_read = pd.read_csv(buffer, dtype=str, encoding='utf-8-sig', engine='pyarrow')
+                    # Reverting to 'c' engine for Vercel/bundle size compliance
+                    df_read = pd.read_csv(buffer, dtype=str, encoding='utf-8-sig', engine='c')
                 except Exception:
                     try:
                         buffer.seek(0)

@@ -111,11 +111,14 @@ def health_check():
 # =====================
 # AUTHENTICATION (Direct HTTP)
 # =====================
-@lru_cache(max_workers=None)
+
+# Global token cache for Vercel efficiency (avoiding invalid awaitable caching)
+_TOKEN_CACHE = {}
+
 async def get_current_user(request: Request):
     """
     Verifies the user with Supabase Auth API directly using httpx.
-    Uses an internal LRU cache to reduce latency for repeated requests with the same token.
+    Uses an internal manual cache to reduce latency for repeated requests with the same token.
     """
     if not supabase_url or not supabase_key:
         return None
@@ -126,10 +129,15 @@ async def get_current_user(request: Request):
     
     token = auth_header.split(" ")[1]
     
-    # Simple cache key based on token
-    return await _verify_token(token)
+    # Check cache
+    if token in _TOKEN_CACHE:
+        return _TOKEN_CACHE[token]
+        
+    user = await _verify_token(token)
+    if user:
+        _TOKEN_CACHE[token] = user
+    return user
 
-@lru_cache(maxsize=128)
 async def _verify_token(token: str):
     try:
         async with httpx.AsyncClient() as client:
@@ -198,12 +206,11 @@ def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Op
         for enc in encodings:
             try:
                 buffer.seek(0)
-                # Optimization: Use pyarrow engine for faster CSV parsing if nrows is not small
-                engine = 'pyarrow' if (nrows is None or nrows > 1000) else 'c'
-                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine=engine)
+                # Reverting back to 'c' engine for Vercel/bundle size compliance
+                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine='c')
             except Exception:
                 continue
-        # Fallback to default
+        # Fallback
         buffer.seek(0)
         return pd.read_csv(buffer, nrows=nrows)
     else:

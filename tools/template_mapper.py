@@ -13,8 +13,8 @@ def get_excel_headers(file_obj, is_csv: bool = False) -> List[str]:
             
         if is_csv:
             try:
-                # Use engine='pyarrow' for maximum speed
-                df = pd.read_csv(file_obj, nrows=1, encoding='utf-8-sig', engine='pyarrow')
+                # Reverting to 'c' engine for Vercel/bundle size compliance
+                df = pd.read_csv(file_obj, nrows=1, encoding='utf-8-sig', engine='c')
             except Exception:
                 if hasattr(file_obj, 'seek'): file_obj.seek(0)
                 df = pd.read_csv(file_obj, nrows=1, encoding='latin1', engine='c')
@@ -56,8 +56,8 @@ def map_template_data(
         data_buffer.seek(0)
         if is_csv:
             try:
-                # Optimization: Use pyarrow engine for high performance
-                data_df = pd.read_csv(data_buffer, encoding='utf-8-sig', engine='pyarrow')
+                # Reverting to 'c' engine for Vercel/bundle size compliance
+                data_df = pd.read_csv(data_buffer, encoding='utf-8-sig', engine='c')
             except Exception:
                 data_buffer.seek(0)
                 data_df = pd.read_csv(data_buffer, encoding='latin1', engine='c')

@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 def _read_csv(file) -> pd.DataFrame:
     try:
         if hasattr(file, 'seek'): file.seek(0)
-        # Optimization: Use pyarrow engine for high performance
-        return pd.read_csv(file, encoding='utf-8-sig', engine='pyarrow')
+        # Reverting to 'c' engine for Vercel/bundle size compliance
+        return pd.read_csv(file, encoding='utf-8-sig', engine='c')
     except Exception:
         try:
             if hasattr(file, 'seek'): file.seek(0)
