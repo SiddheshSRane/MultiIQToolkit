@@ -83,10 +83,16 @@ app.add_middleware(
 # =====================
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled error at {request.url.path}: {str(exc)}", exc_info=True)
+    exc_type = type(exc).__name__
+    logger.error(f"Unhandled error [{exc_type}] at {request.url.path}: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": "An internal server error occurred.", "detail": str(exc)},
+        content={
+            "error": "An internal server error occurred.",
+            "type": exc_type,
+            "detail": str(exc),
+            "path": request.url.path
+        },
     )
 
 @app.exception_handler(HTTPException)
