@@ -245,11 +245,24 @@ def preview_common_columns(
         # Union
         seen = set()
         common = []
-        for s_list in column_sets:
-            # We want to preserve original casing from the first file we encounter it in
-            for c in s_list:
-                if c not in seen:
+        # column_sets is a list of sets of column names
+        for c_set in column_sets:
+            for c in c_set:
+                c_lower = c.lower() if case_insensitive else c
+                if c_lower not in seen:
                     common.append(c)
-                    seen.add(c)
+                    seen.add(c_lower)
 
-    return common, preview_sample
+    # Final sanitization of the sample to ensure NO NaN values reach the JSON response
+    sanitized_sample = []
+    for row in preview_sample:
+        # Convert everything to string and handle potential NaNs that might have slipped through
+        clean_row = []
+        for val in row:
+            if pd.isna(val) or str(val).lower() == "nan":
+                clean_row.append("")
+            else:
+                clean_row.append(str(val))
+        sanitized_sample.append(clean_row)
+
+    return [str(c) for c in common], sanitized_sample

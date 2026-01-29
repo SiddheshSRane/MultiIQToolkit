@@ -539,13 +539,22 @@ async def preview_columns(
             except:
                 pass
 
-        # Optimization: Use fillna and convert_dtypes for cleaner/faster serialization
-        df_clean = df.fillna(value="").convert_dtypes()
+        # Optimization: Use fillna for cleaner/faster serialization
+        # Extra robust: explicitly convert anything potentially NaN to empty string
+        df_clean = df.fillna(value="")
         
         headers = [str(c) for c in df_clean.columns]
-        # to_dict('split') is often faster for getting headers and rows separately
-        split_data = df_clean.to_dict('split')
-        serializable_rows = split_data['data']
+        
+        raw_rows = df_clean.values.tolist()
+        serializable_rows = []
+        for row in raw_rows:
+            clean_row = []
+            for val in row:
+                if pd.isna(val) or str(val).lower() == "nan":
+                    clean_row.append("")
+                else:
+                    clean_row.append(str(val))
+            serializable_rows.append(clean_row)
 
         return {
             "columns": headers,

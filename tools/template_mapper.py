@@ -128,8 +128,16 @@ def preview_mapped_data(
             else:
                 temp_df[t_col] = ""
 
-        # Safe conversion to list with explicit NaN handling
-        preview_rows = temp_df[template_headers].astype(str).replace('nan', '').values.tolist()
+        # Safe conversion to list with explicit NaN handling to prevent JSON serialization errors
+        preview_rows = []
+        for _, row in temp_df[template_headers].iterrows():
+            clean_row = []
+            for val in row:
+                if pd.isna(val) or str(val).lower() == "nan":
+                    clean_row.append("")
+                else:
+                    clean_row.append(str(val))
+            preview_rows.append(clean_row)
 
         return {
             "headers": template_headers,
