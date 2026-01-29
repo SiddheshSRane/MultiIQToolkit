@@ -309,12 +309,13 @@ with tab_files:
                 f.seek(0)
                 if name.lower().endswith(".csv"):
                     try:
-                        df = pd.read_csv(f, nrows=0, encoding='utf-8-sig')
-                    except UnicodeDecodeError:
+                        # Optimization: Use pyarrow engine
+                        df = pd.read_csv(f, nrows=1, encoding='utf-8-sig', engine='pyarrow')
+                    except Exception:
                         f.seek(0)
-                        df = pd.read_csv(f, nrows=0, encoding='latin1')
+                        df = pd.read_csv(f, nrows=1, encoding='latin1', engine='c')
                 else:
-                    df = pd.read_excel(f, sheet_name=0, nrows=0)
+                    df = pd.read_excel(f, sheet_name=0, nrows=1)
                 
                 cols = [str(c).strip() for c in df.columns]
                 if i == 0:
@@ -323,10 +324,11 @@ with tab_files:
                     f.seek(0)
                     if name.lower().endswith(".csv"):
                         try:
-                            preview_df = pd.read_csv(f, nrows=5, encoding='utf-8-sig')
-                        except UnicodeDecodeError:
+                            # Optimization: Use pyarrow engine
+                            preview_df = pd.read_csv(f, nrows=5, encoding='utf-8-sig', engine='pyarrow')
+                        except Exception:
                             f.seek(0)
-                            preview_df = pd.read_csv(f, nrows=5, encoding='latin1')
+                            preview_df = pd.read_csv(f, nrows=5, encoding='latin1', engine='c')
                     else:
                         preview_df = pd.read_excel(f, sheet_name=0, nrows=5)
                     st.markdown("### 📋 Sample Data (First File)")
@@ -382,7 +384,8 @@ with tab_files:
             file.seek(0)
 
             if is_csv:
-                df = pd.read_csv(file, nrows=100)
+                # Optimization: Use pyarrow engine
+                df = pd.read_csv(file, nrows=100, engine='pyarrow')
                 sheet = None
             else:
                 xls = pd.ExcelFile(file)
@@ -425,7 +428,8 @@ with tab_files:
             file.seek(0)
 
             if is_csv:
-                df = pd.read_csv(file, nrows=100)
+                # Optimization: Use pyarrow engine
+                df = pd.read_csv(file, nrows=100, engine='pyarrow')
                 sheet = None
             else:
                 xls = pd.ExcelFile(file)
@@ -471,7 +475,8 @@ with tab_files:
             file.seek(0)
 
             if is_csv:
-                df = pd.read_csv(file, nrows=100)
+                # Optimization: Use pyarrow engine
+                df = pd.read_csv(file, nrows=100, engine='pyarrow')
                 sheet = None
             else:
                 xls = pd.ExcelFile(file)
