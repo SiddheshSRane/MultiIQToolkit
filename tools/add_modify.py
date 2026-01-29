@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 def _read_csv(file) -> pd.DataFrame:
     try:
         if hasattr(file, 'seek'): file.seek(0)
-        # Try engine='c' with utf-8-sig first
-        return pd.read_csv(file, encoding='utf-8-sig', engine='c')
+        # Optimization: Use pyarrow engine for high performance
+        return pd.read_csv(file, encoding='utf-8-sig', engine='pyarrow')
     except Exception:
         try:
             if hasattr(file, 'seek'): file.seek(0)
@@ -27,15 +27,19 @@ def _read_csv(file) -> pd.DataFrame:
             return pd.read_csv(file)
 
 
-def _read_excel_sheets(file) -> dict:
+def _read_excel_sheets(file, target_sheet: Optional[str] = None, apply_all: bool = False) -> dict:
     try:
         xls = pd.ExcelFile(file)
         sheets = {}
-        for name in xls.sheet_names:
-            try:
-                sheets[name] = pd.read_excel(xls, sheet_name=name, dtype=str)
-            except Exception:
-                sheets[name] = pd.DataFrame()
+        # Optimization: Only load the required sheet(s) to save memory
+        sheet_names = xls.sheet_names if (apply_all or not target_sheet) else [target_sheet]
+        
+        for name in sheet_names:
+            if name in xls.sheet_names:
+                try:
+                    sheets[name] = pd.read_excel(xls, sheet_name=name, dtype=str)
+                except Exception:
+                    sheets[name] = pd.DataFrame()
         return sheets
     except Exception as e:
         logger.error(f"Error reading Excel: {e}")
@@ -78,7 +82,7 @@ def remove_columns(
             df = df.drop(columns=columns_to_remove, errors="ignore")
             df.to_csv(output, index=False)
         else:
-            sheets = _read_excel_sheets(file)
+            sheets = _read_excel_sheets(file, target_sheet=sheet_name, apply_all=apply_all_sheets)
 
             if not apply_all_sheets and sheet_name not in sheets:
                 return None, f"Sheet '{sheet_name}' not found."
@@ -124,7 +128,7 @@ def bulk_rename_columns(
             if len(set(rename_map.values())) != len(rename_map.values()):
                 return None, "Duplicate column names detected."
 
-            sheets = _read_excel_sheets(file)
+            sheets = _read_excel_sheets(file, target_sheet=sheet_name, apply_all=apply_all_sheets)
 
             for name, df in sheets.items():
                 if apply_all_sheets or name == sheet_name:
@@ -182,7 +186,7 @@ def replace_blank_values(
             df = _fill(df)
             df.to_csv(output, index=False)
         else:
-            sheets = _read_excel_sheets(file)
+            sheets = _read_excel_sheets(file, target_sheet=sheet_name, apply_all=apply_all_sheets)
 
             for name, df in sheets.items():
                 if apply_all_sheets or name == sheet_name:
@@ -255,7 +259,7 @@ def convert_datetime_column(
             df = _convert(df)
             df.to_csv(output, index=False)
         else:
-            sheets = _read_excel_sheets(file)
+            sheets = _read_excel_sheets(file, target_sheet=sheet_name, apply_all=apply_all_sheets)
 
             for name, df in sheets.items():
                 if apply_all_sheets or name == sheet_name:

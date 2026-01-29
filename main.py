@@ -5,11 +5,9 @@ import asyncio
 import logging
 import time
 import os
-from typing import List, Tuple, Optional
-from concurrent.futures import ThreadPoolExecutor
-
 import pandas as pd
 import httpx
+from functools import lru_cache
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -113,9 +111,11 @@ def health_check():
 # =====================
 # AUTHENTICATION (Direct HTTP)
 # =====================
+@lru_cache(max_workers=None)
 async def get_current_user(request: Request):
     """
     Verifies the user with Supabase Auth API directly using httpx.
+    Uses an internal LRU cache to reduce latency for repeated requests with the same token.
     """
     if not supabase_url or not supabase_key:
         return None
@@ -125,6 +125,12 @@ async def get_current_user(request: Request):
         return None
     
     token = auth_header.split(" ")[1]
+    
+    # Simple cache key based on token
+    return await _verify_token(token)
+
+@lru_cache(maxsize=128)
+async def _verify_token(token: str):
     try:
         async with httpx.AsyncClient() as client:
             headers = {
@@ -176,6 +182,7 @@ async def log_activity(user_id: str, action: str, filename: str, file_url: Optio
 def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Optional[str] = None) -> pd.DataFrame:
     """
     Standardizes reading a DataFrame from CSV or Excel with robustness.
+    Optimized for speed using pyarrow engine for CSVs.
     """
     is_csv = filename.lower().endswith(".csv")
     
@@ -191,7 +198,9 @@ def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Op
         for enc in encodings:
             try:
                 buffer.seek(0)
-                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine='c')
+                # Optimization: Use pyarrow engine for faster CSV parsing if nrows is not small
+                engine = 'pyarrow' if (nrows is None or nrows > 1000) else 'c'
+                return pd.read_csv(buffer, nrows=nrows, encoding=enc, engine=engine)
             except Exception:
                 continue
         # Fallback to default
@@ -204,6 +213,7 @@ def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Op
             active_sheet = sheet_name or (xls.sheet_names[0] if xls.sheet_names else None)
             if active_sheet is None:
                 return pd.DataFrame()
+            # Optimization: Specific sheet loading
             return pd.read_excel(xls, sheet_name=active_sheet, nrows=nrows, dtype=str)
         except Exception as e:
             logger.error(f"Excel read error ({filename}): {e}")
@@ -498,7 +508,7 @@ async def preview_columns(
         if not contents:
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
             
-        df = read_df(io.BytesIO(contents), file.filename, nrows=5, sheet_name=sheet_name)
+        df = read_df(io.BytesIO(contents), file.filename, nrows=10, sheet_name=sheet_name)
         
         if df.empty and not file.filename.lower().endswith(".csv"):
              # Could be an empty sheet or read failure
@@ -512,18 +522,13 @@ async def preview_columns(
             except:
                 pass
 
-        # Robustly handle types that aren't JSON serializable (NaN, Timestamp, etc)
-        # Use where(notnull) to convert NaN to None (null in JSON)
-        df_clean = df.where(pd.notnull(df), None)
+        # Optimization: Use fillna and convert_dtypes for cleaner/faster serialization
+        df_clean = df.fillna(value="").convert_dtypes()
         
         headers = [str(c) for c in df_clean.columns]
-        rows = df_clean.values.tolist()
-        
-        # Final pass to ensure everything is serializable
-        # (Already mostly covered by None, but good for security)
-        serializable_rows = []
-        for row in rows:
-            serializable_rows.append([ (None if r is None else str(r)) for r in row ])
+        # to_dict('split') is often faster for getting headers and rows separately
+        split_data = df_clean.to_dict('split')
+        serializable_rows = split_data['data']
 
         return {
             "columns": headers,

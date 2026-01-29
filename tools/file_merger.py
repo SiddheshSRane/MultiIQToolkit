@@ -34,10 +34,15 @@ def merge_files_advanced(
             if is_csv:
                 try:
                     buffer.seek(0)
-                    df_read = pd.read_csv(buffer, dtype=str, encoding='utf-8-sig')
-                except UnicodeDecodeError:
-                    buffer.seek(0)
-                    df_read = pd.read_csv(buffer, dtype=str, encoding='latin1')
+                    # Optimization: Use pyarrow engine for high performance
+                    df_read = pd.read_csv(buffer, dtype=str, encoding='utf-8-sig', engine='pyarrow')
+                except Exception:
+                    try:
+                        buffer.seek(0)
+                        df_read = pd.read_csv(buffer, dtype=str, encoding='latin1', engine='c')
+                    except Exception:
+                        buffer.seek(0)
+                        df_read = pd.read_csv(buffer, dtype=str)
                 df_list = [df_read]
             else:
                 xls = pd.ExcelFile(buffer)
@@ -59,19 +64,19 @@ def merge_files_advanced(
                 if df.columns.duplicated().any():
                     df = df.loc[:, ~df.columns.duplicated()]
                 
-                # Data cleaning
-                if trim_whitespace:
-                    for col in df.select_dtypes(include=['object']).columns:
-                        df[col] = df[col].str.strip()
-                
-                if casing != "none":
-                    for col in df.select_dtypes(include=['object']).columns:
+                # Data cleaning - Optimized with vectorized operations on object columns
+                obj_cols = df.select_dtypes(include=['object']).columns
+                if not obj_cols.empty:
+                    if trim_whitespace:
+                        df[obj_cols] = df[obj_cols].apply(lambda x: x.str.strip())
+                    
+                    if casing != "none":
                         if casing == "upper":
-                            df[col] = df[col].str.upper()
+                            df[obj_cols] = df[obj_cols].apply(lambda x: x.str.upper())
                         elif casing == "lower":
-                            df[col] = df[col].str.lower()
+                            df[obj_cols] = df[obj_cols].apply(lambda x: x.str.lower())
                         elif casing == "title":
-                            df[col] = df[col].str.title()
+                            df[obj_cols] = df[obj_cols].apply(lambda x: x.str.title())
 
                 dfs.append(df)
 

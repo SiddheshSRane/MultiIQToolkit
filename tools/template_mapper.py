@@ -13,13 +13,13 @@ def get_excel_headers(file_obj, is_csv: bool = False) -> List[str]:
             
         if is_csv:
             try:
-                # Use engine='c' for speed
-                df = pd.read_csv(file_obj, nrows=0, encoding='utf-8-sig', engine='c')
+                # Use engine='pyarrow' for maximum speed
+                df = pd.read_csv(file_obj, nrows=1, encoding='utf-8-sig', engine='pyarrow')
             except Exception:
                 if hasattr(file_obj, 'seek'): file_obj.seek(0)
-                df = pd.read_csv(file_obj, nrows=0, encoding='latin1', engine='c')
+                df = pd.read_csv(file_obj, nrows=1, encoding='latin1', engine='c')
         else:
-            df = pd.read_excel(file_obj, nrows=0)
+            df = pd.read_excel(file_obj, nrows=1)
             
         return [str(c) for c in df.columns]
     except Exception as e:
@@ -56,10 +56,11 @@ def map_template_data(
         data_buffer.seek(0)
         if is_csv:
             try:
-                data_df = pd.read_csv(data_buffer, encoding='utf-8-sig')
+                # Optimization: Use pyarrow engine for high performance
+                data_df = pd.read_csv(data_buffer, encoding='utf-8-sig', engine='pyarrow')
             except Exception:
                 data_buffer.seek(0)
-                data_df = pd.read_csv(data_buffer, encoding='latin1')
+                data_df = pd.read_csv(data_buffer, encoding='latin1', engine='c')
         else:
             data_df = pd.read_excel(data_buffer)
 
