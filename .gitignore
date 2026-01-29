@@ -62,3 +62,11 @@ cleaned_*
 .env
 frontend/.env
 **/.env
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+.vite/
+frontend/.vite/
+dist/
+frontend/dist/
