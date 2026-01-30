@@ -225,23 +225,43 @@ def convert_dates_text(text: str, target_format: str) -> str:
         if fmt == "ISO 8601":
             fmt = "%Y-%m-%dT%H:%M:%S"
 
-        # Vectorized conversion using pandas
-        s = pd.Series(lines)
-        # Filter out obvious empties to speed up pd.to_datetime
-        mask = s.str.strip() != ""
+        valid_count = 0
+        results = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                results.append("")
+                continue
+            
+            try:
+                # Numeric detection logic
+                dt = None
+                
+                # Check if it's a pure number
+                if stripped.isdigit():
+                    num = int(stripped)
+                    # 5-digit numbers (around 40k-60k) are likely Excel serial dates
+                    if 40000 <= num <= 60000:
+                        dt = pd.to_datetime(num, unit='D', origin='1899-12-30')
+                    # 10st or 13-digit numbers are likely Unix timestamps (seconds or ms)
+                    elif 1000000000 <= num <= 2147483647: # Seconds
+                        dt = pd.to_datetime(num, unit='s')
+                    elif 1000000000000 <= num <= 2147483647000: # Milliseconds
+                        dt = pd.to_datetime(num, unit='ms')
+
+                # Fallback to standard parsing if not numeric or numeric detection didn't produce a date
+                if dt is None or pd.isna(dt):
+                    dt = pd.to_datetime(stripped, errors="coerce", format="mixed", dayfirst=True)
+                
+                if pd.isna(dt):
+                    results.append(line) # Keep original if parse fails
+                else:
+                    results.append(dt.strftime(fmt))
+                    valid_count += 1
+            except Exception:
+                results.append(line)
         
-        if mask.any():
-            # Try parsing with format='mixed' for high coverage
-            dt_series = pd.to_datetime(s[mask], errors="coerce", format="mixed", dayfirst=True)
-            formatted = dt_series.dt.strftime(fmt)
-            # Fill back into original data, preserving unparseable as original
-            results = formatted.fillna(s[mask])
-            # Reconstruct the full list including empties
-            final_results = s.copy()
-            final_results[mask] = results
-            return "\n".join(final_results)
-        
-        return "\n".join(lines)
+        return "\n".join(results), valid_count
 
     except Exception as e:
         logger.error(f"Error in convert_dates_text: {str(e)}", exc_info=True)

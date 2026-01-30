@@ -238,9 +238,29 @@ def convert_datetime_column(
                 # Record original values to restore them if conversion fails
                 original_values = df[col].astype(str)
                 
-                # Vectorized conversion
-                # Mixed format is slower but more robust
-                dt_series = pd.to_datetime(original_values, errors="coerce", dayfirst=True)
+                # Vectorized numeric detection
+                numeric_vals = pd.to_numeric(original_values, errors='coerce')
+                dt_series = pd.Series(pd.NaT, index=df.index)
+
+                # Excel Serial Dates (approx 1910 - 2060)
+                excel_mask = (numeric_vals >= 4000) & (numeric_vals <= 60000) & original_values.str.match(r'^\d{4,5}(\.0+)?$')
+                if excel_mask.any():
+                    dt_series.loc[excel_mask] = pd.to_datetime(numeric_vals[excel_mask], unit='D', origin='1899-12-30')
+
+                # Unix Timestamps (Seconds)
+                ts_mask = (numeric_vals >= 1000000000) & (numeric_vals <= 2147483647) & original_values.str.match(r'^\d{10}(\.0+)?$')
+                if ts_mask.any():
+                    dt_series.loc[ts_mask] = pd.to_datetime(numeric_vals[ts_mask], unit='s')
+                
+                # Unix Timestamps (Ms)
+                ms_mask = (numeric_vals >= 1000000000000) & (numeric_vals <= 2147483647000) & original_values.str.match(r'^\d{13}(\.0+)?$')
+                if ms_mask.any():
+                    dt_series.loc[ms_mask] = pd.to_datetime(numeric_vals[ms_mask], unit='ms')
+
+                # Standard Parsing Fallback for strings
+                remaining_mask = dt_series.isna() & (original_values.str.strip() != "")
+                if remaining_mask.any():
+                    dt_series.loc[remaining_mask] = pd.to_datetime(original_values[remaining_mask], errors="coerce", format="mixed", dayfirst=True)
                 
                 # Format the valid dates
                 fmt = target_format

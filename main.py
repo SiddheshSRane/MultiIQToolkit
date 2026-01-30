@@ -87,16 +87,20 @@ async def global_exception_handler(request: Request, exc: Exception):
     exc_type = type(exc).__name__
     tb = traceback.format_exc()
     logger.error(f"Unhandled error [{exc_type}] at {request.url.path}: {str(exc)}\n{tb}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "An internal server error occurred.",
-            "type": exc_type,
-            "detail": str(exc),
-            "traceback": tb,
-            "path": request.url.path
-        },
-    )
+    
+    # Mask tracebacks in production-like environments for security
+    content = {
+        "error": "An internal server error occurred.",
+        "type": exc_type,
+        "path": request.url.path
+    }
+    
+    # Only show detail/traceback if specifically enabled or in dev mode
+    if os.getenv("DEBUG", "false").lower() == "true":
+        content["detail"] = str(exc)
+        content["traceback"] = tb
+        
+    return JSONResponse(status_code=500, content=content)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -122,13 +126,14 @@ def health_check():
 # AUTHENTICATION (Direct HTTP)
 # =====================
 
-# Global token cache for Vercel efficiency (avoiding invalid awaitable caching)
-_TOKEN_CACHE = {}
+# Global token cache for Vercel efficiency (with simple TTL to prevent memory leaks)
+_TOKEN_CACHE = {} 
+_CACHE_TTL = 3600 # 1 hour
 
 async def get_current_user(request: Request):
     """
     Verifies the user with Supabase Auth API directly using httpx.
-    Uses an internal manual cache to reduce latency for repeated requests with the same token.
+    Uses a time-aware cache to minimize latency and memory bloat.
     """
     if not supabase_url or not supabase_key:
         return None
@@ -139,13 +144,18 @@ async def get_current_user(request: Request):
     
     token = auth_header.split(" ")[1]
     
-    # Check cache
+    # Check cache with TTL
+    now = time.time()
     if token in _TOKEN_CACHE:
-        return _TOKEN_CACHE[token]
+        user, expiry = _TOKEN_CACHE[token]
+        if now < expiry:
+            return user
+        else:
+            del _TOKEN_CACHE[token] # Expired
         
     user = await _verify_token(token)
     if user:
-        _TOKEN_CACHE[token] = user
+        _TOKEN_CACHE[token] = (user, now + _CACHE_TTL)
     return user
 
 async def _verify_token(token: str):
@@ -241,13 +251,20 @@ async def flatten_files(files: List[UploadFile]) -> List[Tuple[io.BytesIO, str]]
     """
     Extracts files from a list of UploadFile objects, including unpacking ZIPs.
     Returns a list of (buffer, filename) tuples.
+    Includes basic ZIP bomb protection (limits file count).
     """
     import zipfile
     file_data = []
+    MAX_FILES_IN_ZIP = 50
+    
     for file in files:
         contents = await file.read()
         if is_zip(file.filename):
             with zipfile.ZipFile(io.BytesIO(contents)) as z:
+                total_files = len(z.namelist())
+                if total_files > MAX_FILES_IN_ZIP:
+                   raise HTTPException(status_code=400, detail=f"ZIP contains too many files (Limit: {MAX_FILES_IN_ZIP})")
+                
                 for name in z.namelist():
                     # Ignore directories and non-data files
                     if name.endswith('/') or os.path.basename(name).startswith('.'):
@@ -472,14 +489,17 @@ class DateTimeConvertRequest(BaseModel):
 @app.post("/api/convert/datetime")
 async def convert_datetime_text_api(payload: DateTimeConvertRequest, user=Depends(get_current_user)):
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(executor, lambda: convert_dates_text(payload.text, payload.target_format))
+    result, valid_count = await loop.run_in_executor(executor, lambda: convert_dates_text(payload.text, payload.target_format))
     stats = await loop.run_in_executor(executor, lambda: column_stats(payload.text))
     
+    # Override non_empty with actual valid_count for more accurate reporting
+    stats["non_empty"] = valid_count
+
     if user:
         await log_activity(user.id, "DateTime Conversion (Text)", "clipboard")
 
     return {
-    "result": result,
+        "result": result,
         "stats": stats
     }
 
@@ -539,22 +559,11 @@ async def preview_columns(
             except:
                 pass
 
-        # Optimization: Use fillna for cleaner/faster serialization
-        # Extra robust: explicitly convert anything potentially NaN to empty string
-        df_clean = df.fillna(value="")
+        # Optimization: Use vectorized fillna and cleaning
+        df_clean = df.fillna("").astype(str).replace(["nan", "NaN", "None"], "")
         
         headers = [str(c) for c in df_clean.columns]
-        
-        raw_rows = df_clean.values.tolist()
-        serializable_rows = []
-        for row in raw_rows:
-            clean_row = []
-            for val in row:
-                if pd.isna(val) or str(val).lower() == "nan":
-                    clean_row.append("")
-                else:
-                    clean_row.append(str(val))
-            serializable_rows.append(clean_row)
+        serializable_rows = df_clean.values.tolist()
 
         return {
             "columns": headers,
@@ -757,12 +766,13 @@ async def convert_to_json_api(
     orient: str = Form("records"),
     indent: int = Form(4),
     sheet_name: str = Form(None),
+    all_sheets: bool = Form(False),
     user=Depends(get_current_user)
 ):
     return await unified_batch_handler(
         files,
         convert_to_json,
-        {"orient": orient, "indent": indent, "sheet_name": sheet_name},
+        {"orient": orient, "indent": indent, "sheet_name": sheet_name, "apply_all_sheets": all_sheets},
         "JSON Conversion",
         "", # JSON converter already returns the correct ext
         user

@@ -18,11 +18,6 @@ import { downloadBlob, extractFilename } from "../utils/download";
 import { parseApiError } from "../utils/apiError";
 import { useNotifications } from "../contexts/NotificationContext";
 
-interface SampleData {
-    headers: string[];
-    rows: string[][];
-}
-
 interface ConversionStats {
     total_lines: number;
     non_empty: number;
@@ -57,9 +52,8 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
     const [columns, setColumns] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
     const [sheet, setSheet] = useState<string | null>(null);
-    const [, setSheets] = useState<string[] | null>(null);
-    const [, setSample] = useState<SampleData | null>(null);
-    const [allSheets] = useState(false);
+    const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+    const [applyAllSheets, setApplyAllSheets] = useState(false);
 
     const [format, setFormat] = useState<string>("%Y-%m-%d");
     const [customFormat, setCustomFormat] = useState<string>("");
@@ -86,7 +80,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             }
 
             const data = await res.json();
-            setSheets(data.sheets);
+            if (data.sheets) setAvailableSheets(data.sheets);
             const firstSheet = data.sheets ? data.sheets[0] : null;
             if (!sheetName && firstSheet) {
                 setSheet(firstSheet);
@@ -94,7 +88,6 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             }
 
             setColumns(data.columns);
-            setSample(data.sample || null);
         } catch (e) {
             console.error("Preview error:", e);
             notify('error', 'Preview Failed', e instanceof Error ? e.message : "Failed to preview file");
@@ -106,8 +99,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             fetchPreview(files[0], sheet);
         } else {
             setColumns([]);
-            setSample(null);
-            setSheets(null);
+            setAvailableSheets([]);
             setSheet(null);
         }
     }, [files, sheet, fetchPreview]);
@@ -166,8 +158,8 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             files.forEach(f => fd.append("files", f));
             fd.append("column", selectedCols.join(","));
             fd.append("target_format", getTargetFormat());
-            if (sheet) fd.append("sheet_name", sheet);
-            fd.append("all_sheets", String(allSheets));
+            if (sheet && !applyAllSheets) fd.append("sheet_name", sheet);
+            fd.append("all_sheets", String(applyAllSheets));
 
             const res = await fetchWithAuth("/api/file/convert-datetime", {
                 method: "POST",
@@ -194,7 +186,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             dismiss(toastId);
             setLoading(false);
         }
-    }, [files, selectedCols, getTargetFormat, sheet, allSheets, onLogAction, notify, dismiss]);
+    }, [files, selectedCols, getTargetFormat, sheet, applyAllSheets, onLogAction, notify, dismiss]);
 
     const handleCopy = useCallback(async () => {
         try {
@@ -478,9 +470,43 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
                         <Settings size={20} style={{ color: 'var(--primary)' }} />
                         <div>
                             <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>DATE FORMAT CONFIGURATION</h4>
-                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Choose your target date format</p>
                         </div>
                     </div>
+
+                    {availableSheets.length > 1 && mode === "file" && (
+                        <div style={{
+                            marginBottom: '24px',
+                            padding: '16px',
+                            background: 'var(--primary-glow)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--primary)',
+                            marginTop: '16px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>Select Excel Sheet</label>
+                                <label className="checkbox" style={{ padding: '4px 8px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                    <input type="checkbox" checked={applyAllSheets} onChange={(e) => setApplyAllSheets(e.target.checked)} />
+                                    <span style={{ fontSize: '11px', fontWeight: 700 }}>Apply to all sheets</span>
+                                </label>
+                            </div>
+                            <select
+                                value={sheet || ""}
+                                onChange={(e) => setSheet(e.target.value)}
+                                disabled={applyAllSheets}
+                                style={{
+                                    width: '100%',
+                                    background: 'white',
+                                    opacity: applyAllSheets ? 0.5 : 1,
+                                    cursor: applyAllSheets ? 'not-allowed' : 'pointer',
+                                    padding: '10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-color)'
+                                }}
+                            >
+                                {availableSheets.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                    )}
 
                     <div style={{
                         display: 'grid',

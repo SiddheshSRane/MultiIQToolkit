@@ -298,7 +298,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
               style={{
                 width: '100%',
                 minHeight: '400px',
-                fontFamily: 'JetBrains Mono, monospace',
+                fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 lineHeight: '1.8',
                 resize: 'vertical',
@@ -422,7 +422,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
                 padding: '20px',
                 color: output ? 'var(--success)' : 'var(--text-muted)',
                 fontWeight: output ? 600 : 400,
-                fontFamily: 'JetBrains Mono, monospace',
+                fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 lineHeight: '1.8',
                 resize: 'vertical',
@@ -559,7 +559,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
                   value={delimiter}
                   onChange={(e) => setDelimiter(e.target.value)}
                   style={{
-                    fontFamily: 'JetBrains Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     fontSize: '13px',
                     paddingLeft: '38px'
                   }}
@@ -577,7 +577,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
                   value={itemPrefix}
                   onChange={(e) => setItemPrefix(e.target.value)}
                   style={{
-                    fontFamily: 'JetBrains Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     fontSize: '13px',
                     paddingLeft: '38px'
                   }}
@@ -595,7 +595,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
                   value={itemSuffix}
                   onChange={(e) => setItemSuffix(e.target.value)}
                   style={{
-                    fontFamily: 'JetBrains Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     fontSize: '13px',
                     paddingLeft: '38px'
                   }}
@@ -613,7 +613,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
                   value={resultPrefix}
                   onChange={(e) => setResultPrefix(e.target.value)}
                   style={{
-                    fontFamily: 'JetBrains Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     fontSize: '13px',
                     paddingLeft: '38px'
                   }}
@@ -631,7 +631,7 @@ export default function Converter({ onLogAction }: ConverterProps) {
                   value={resultSuffix}
                   onChange={(e) => setResultSuffix(e.target.value)}
                   style={{
-                    fontFamily: 'JetBrains Mono, monospace',
+                    fontFamily: 'var(--font-mono)',
                     fontSize: '13px',
                     paddingLeft: '38px'
                   }}

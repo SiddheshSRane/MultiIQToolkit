@@ -374,7 +374,7 @@ export default function DiffChecker() {
             transition: background 0.2s;
         }
         .stat-item:hover { background: var(--bg-secondary); }
-        .stat-val { font-size: 20px; fontWeight: 800; display: block; margin-bottom: 4px; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .stat-val { font-size: 20px; fontWeight: 800; display: block; margin-bottom: 4px; fontFamily: 'var(--font-main)'; }
         .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
         
         .green { color: #34d399; }
@@ -434,7 +434,7 @@ export default function DiffChecker() {
             border: none;
             padding: 16px;
             color: var(--text-main);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 13px;
             line-height: 1.6;
             resize: none;
@@ -446,7 +446,7 @@ export default function DiffChecker() {
             border: 1px solid var(--border-color);
             border-radius: 12px;
             background: var(--bg-card); /* Smoother background */
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 12px;
             display: flex;
             flex-direction: column;

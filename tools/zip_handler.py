@@ -11,7 +11,18 @@ def process_zip_file(zip_bytes: bytes, processor: Callable[[io.BytesIO, str], Tu
     input_zip = io.BytesIO(zip_bytes)
     output_zip_buffer = io.BytesIO()
     
+    MAX_TOTAL_SIZE = 500 * 1024 * 1024 # 500MB limit for safety
+    MAX_FILE_COUNT = 50
+    
     with zipfile.ZipFile(input_zip, 'r') as z_in:
+        # ZIP Bomb Protection: Check uncompressed size and count
+        total_size = sum(info.file_size for info in z_in.infolist())
+        if total_size > MAX_TOTAL_SIZE:
+            raise Exception(f"ZIP uncompressed size exceeds limit ({MAX_TOTAL_SIZE // (1024*1024)}MB)")
+        
+        if len(z_in.infolist()) > MAX_FILE_COUNT:
+            raise Exception(f"ZIP contains too many files (Limit: {MAX_FILE_COUNT})")
+
         with zipfile.ZipFile(output_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as z_out:
             for filename in z_in.namelist():
                 # Skip directories

@@ -8,7 +8,6 @@ import TemplateMapper from "./pages/TemplateMapper";
 import QrFusion from "./pages/QrFusion";
 import DiffChecker from "./pages/DiffChecker";
 import Auth from "./components/Auth";
-import CommandPalette from "./components/CommandPalette";
 import type { LogEntry } from "./components/ActivityLog";
 import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
@@ -24,13 +23,11 @@ import {
   FileCode,
   Columns,
   QrCode,
-  Layout,
   Loader2,
   ArrowLeft,
   Lightbulb,
   Moon,
   Sun,
-  Search,
   GitCompare,
   Zap
 } from "lucide-react";
@@ -48,48 +45,6 @@ const TOOL_INSIGHTS: Record<string, string> = {
   diff: "Visualizing code differences side-by-side helps catch regression bugs before they hit regression testing.",
 };
 
-const TOOL_CONFIG: Record<string, { label: string; description: string; icon: any }> = {
-  convert: {
-    label: "Text Transformer",
-    description: "Advanced text cleaning, case conversion, and multi-line formatting.",
-    icon: Hash,
-  },
-  datetime: {
-    label: "DateTime Helper",
-    description: "Convert dates across timezones and standardize formats instantly.",
-    icon: Clock,
-  },
-  file: {
-    label: "File Modification",
-    description: "Resize, rename, and add metadata to your documents and images.",
-    icon: Edit3,
-  },
-  merge: {
-    label: "File Merger",
-    description: "Combines multiple PDF, Excel, or CSV files into a single unified document.",
-    icon: Combine,
-  },
-  json: {
-    label: "JSON Converter",
-    description: "Transform raw data between JSON, CSV, and YAML with ease.",
-    icon: FileCode,
-  },
-  map: {
-    label: "Template Mapper",
-    description: "Map complex datasets to predefined templates with visual field mapping.",
-    icon: Columns,
-  },
-  qr: {
-    label: "QR Fusion",
-    description: "Generate branded QR codes with custom colors and logo embedding.",
-    icon: QrCode,
-  },
-  diff: {
-    label: "Code Comparer",
-    description: "Compare text or code snippets to spot differences instantly.",
-    icon: GitCompare,
-  },
-};
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -97,16 +52,12 @@ export default function App() {
   const [page, setPage] = useState<PageType>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [theme, setTheme] = useState<string>('modern');
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   useEffect(() => {
-    // Initial data hydration from Supabase
     if (user) {
-      // 1. Get Theme from metadata
       const savedTheme = user.user_metadata?.theme || 'modern';
       setTheme(savedTheme);
 
-      // 2. Fetch Activity Logs
       const fetchLogs = async () => {
         try {
           const { data, error } = await supabase
@@ -122,7 +73,7 @@ export default function App() {
               timestamp: new Date(l.created_at).toLocaleTimeString(),
               action: l.action,
               filename: l.filename,
-              blob: undefined // We don't store blobs in DB
+              blob: undefined
             })));
           }
         } catch (e) {
@@ -133,20 +84,6 @@ export default function App() {
     }
   }, [user]);
 
-  useEffect(() => {
-    const handleGlobalKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && !showCommandPalette && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        setShowCommandPalette(true);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowCommandPalette(true);
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKey);
-    return () => window.removeEventListener('keydown', handleGlobalKey);
-  }, [showCommandPalette]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -164,7 +101,6 @@ export default function App() {
     setLogs((prev) => [newLog, ...prev]);
     notify('success', action, `Processed ${filename} successfully.`);
 
-    // Persist to Supabase
     if (user) {
       try {
         await supabase.from('activity_logs').insert({
@@ -181,122 +117,152 @@ export default function App() {
   const clearLogs = useCallback(async () => {
     setLogs([]);
     if (user) {
-      await supabase.from('activity_logs').delete().eq('user_id', user.id);
+      const { error } = await supabase.from('activity_logs').delete().eq('user_id', user.id);
+      if (error) console.error("Error clearing logs:", error);
     }
     notify('info', 'Activity Cleared', 'Your session history has been purged.');
   }, [notify, user]);
 
-  // Theme Sync
   const cycleTheme = async () => {
     const themes = ['modern', 'dark', 'cyberpunk', 'retro', 'midnight'];
-    const currentIdx = themes.indexOf(theme);
-    const nextTheme = themes[(currentIdx + 1) % themes.length];
+    const nextTheme = themes[(themes.indexOf(theme) + 1) % themes.length];
     setTheme(nextTheme);
-
-    // Persist Theme to User Metadata
     if (user) {
-      await supabase.auth.updateUser({
-        data: { theme: nextTheme }
-      });
+      await supabase.auth.updateUser({ data: { theme: nextTheme } });
     }
   };
 
-  // Show loading state while checking authentication
   if (authLoading) {
     return (
       <div className="layout-root" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center" }}>
-          <Loader2 className="animate-spin" size={48} style={{ color: "var(--primary)", marginBottom: "16px" }} />
-          <p className="desc">Loading...</p>
-        </div>
+        <Loader2 className="animate-spin" size={48} style={{ color: "var(--primary)" }} />
       </div>
     );
   }
 
-  // Show auth component if not authenticated
-  if (!user) {
-    return <Auth />;
-  }
-
-  const ActiveIcon = page ? TOOL_CONFIG[page].icon : null;
+  if (!user) return <Auth />;
 
   const getThemeIcon = () => {
-    switch (theme) {
-      case 'cyberpunk': return <Zap size={20} />;
-      case 'retro': return <Hash size={20} />;
-      case 'midnight': return <Moon size={20} />;
-      case 'dark': return <Moon size={20} />;
-      default: return <Sun size={20} />;
-    }
+    if (theme === 'cyberpunk') return <Zap size={20} />;
+    if (theme === 'retro') return <Hash size={20} />;
+    if (['midnight', 'dark'].includes(theme)) return <Moon size={20} />;
+    return <Sun size={20} />;
   };
 
   return (
     <div className="layout-root">
-      {/* Top Portal Header */}
       <header className="portal-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div className="brand" onClick={() => setPage(null)} style={{ cursor: 'pointer' }}>
-            <div className="brand-logo indigo-glow">
-              <Gem size={28} />
+        <div className="header-inner">
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <div className="brand" onClick={() => setPage(null)} style={{ cursor: 'pointer', marginRight: 40, display: 'flex', alignItems: 'center' }}>
+              <h1 style={{ margin: 0, padding: 0, background: 'transparent', WebkitTextFillColor: 'initial', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '20px', fontWeight: 900 }}>
+                <Gem size={24} color="#e11d48" /> DATA<span style={{ color: '#e11d48' }}>REFINERY</span>
+              </h1>
             </div>
-            <h1>DataRefinery</h1>
+
+            <nav className="nav-menu">
+              <div className={`nav-item ${page === 'convert' || page === 'diff' ? 'active' : ''}`}>
+                TEXT TOOLS
+                <div className="mega-menu" style={{ minWidth: 280 }}>
+                  <div className="menu-list">
+                    <div className="menu-link" onClick={() => setPage('convert')}>
+                      <Hash size={18} color="#6366f1" />
+                      <span>Text Transformer</span>
+                    </div>
+                    <div className="menu-link" onClick={() => setPage('diff')}>
+                      <GitCompare size={18} color="#f97316" />
+                      <span>Code Comparer</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`nav-item ${['file', 'merge', 'map'].includes(page || '') ? 'active' : ''}`}>
+                FILE OPERATIONS
+                <div className="mega-menu" style={{ width: 450, gridTemplateColumns: '1fr 1fr' }}>
+                  <div>
+                    <span className="menu-section-title">Modify & Organize</span>
+                    <div className="menu-list">
+                      <div className="menu-link" onClick={() => setPage('file')}>
+                        <Edit3 size={18} color="#f59e0b" />
+                        <span>File Modification</span>
+                      </div>
+                      <div className="menu-link" onClick={() => setPage('merge')}>
+                        <Combine size={18} color="#8b5cf6" />
+                        <span>File Merger</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="menu-section-title">Visual Mapping</span>
+                    <div className="menu-list">
+                      <div className="menu-link" onClick={() => setPage('map')}>
+                        <Columns size={18} color="#ec4899" />
+                        <span>Template Mapper</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`nav-item ${['json', 'datetime'].includes(page || '') ? 'active' : ''}`}>
+                CONVERTERS
+                <div className="mega-menu" style={{ minWidth: 280 }}>
+                  <div className="menu-list">
+                    <div className="menu-link" onClick={() => setPage('json')}>
+                      <FileCode size={18} color="#10b981" />
+                      <span>JSON Converter</span>
+                    </div>
+                    <div className="menu-link" onClick={() => setPage('datetime')}>
+                      <Clock size={18} color="#06b6d4" />
+                      <span>DateTime Helper</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`nav-item ${page === 'qr' ? 'active' : ''}`}>
+                UTILITIES
+                <div className="mega-menu" style={{ minWidth: 240 }}>
+                  <div className="menu-list">
+                    <div className="menu-link" onClick={() => setPage('qr')}>
+                      <QrCode size={18} color="#ef4444" />
+                      <span>QR Fusion</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </nav>
           </div>
 
-          <div className="search-pill" onClick={() => setShowCommandPalette(true)}>
-            <Search size={14} />
-            <span>Search tools (/)</span>
-          </div>
-        </div>
-
-        {user && (
-          <div className="user-profile-compact">
-            <button
-              className="theme-toggle"
-              onClick={cycleTheme}
-              style={{ background: 'transparent', border: 'none', padding: 8, color: 'var(--text-muted)' }}
-              title={`Current Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`}
-            >
-              {getThemeIcon()}
-            </button>
-            <div className="divider" />
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div className="user-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>
+          {user && (
+            <div className="user-profile-compact">
+              <button className="theme-toggle" onClick={cycleTheme} style={{ background: 'transparent', border: 'none', padding: 8, color: 'var(--text-muted)' }}>
+                {getThemeIcon()}
+              </button>
+              <div className="divider" />
+              <div className="user-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>
                 {user.user_metadata?.full_name?.[0] || user.email?.[0].toUpperCase()}
               </div>
-              <div className="user-info" style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-main)" }}>
-                  {user.user_metadata?.full_name || "User"}
-                </span>
-                <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
-                  {user.email}
-                </span>
-              </div>
+              <button className="logout-btn" onClick={() => signOut()} title="Sign out" style={{ padding: 8 }}>
+                <LogOut size={16} />
+              </button>
             </div>
-            <button className="logout-btn" onClick={() => signOut()} title="Sign out" style={{ padding: 8 }}>
-              <LogOut size={16} />
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
       <main className="main-container">
-        {!page ? (
-          <Hub setPage={setPage} logs={logs} onClearLogs={clearLogs} />
-        ) : (
-          /* Active Tool View */
-          <div className="tool-focused-view">
-            <button className="back-btn" onClick={() => setPage(null)}>
-              <ArrowLeft size={16} /> Back to Hub
-            </button>
-
-            <div className="tool-header-info">
-              <div className="tool-icon-large">
-                {ActiveIcon && <ActiveIcon size={32} />}
-              </div>
-              <div>
-                <h2>{TOOL_CONFIG[page].label}</h2>
-                <p>{TOOL_CONFIG[page].description}</p>
-              </div>
+        {page ? (
+          <div className="tool-focused-view slide-in-bottom">
+            <div style={{ marginBottom: 32, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                className="btn-ghost"
+                onClick={() => setPage(null)}
+                style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: 0 }}
+              >
+                <ArrowLeft size={16} /> BACK TO DASHBOARD
+              </button>
             </div>
 
             <div key={page} className="page-enter">
@@ -310,55 +276,18 @@ export default function App() {
               {page === "diff" && <DiffChecker />}
             </div>
 
-            {/* Tool Help Section */}
-            <div className="tool-help-section">
-              <div className="tool-help-icon">
-                <Lightbulb size={24} />
-              </div>
+            <div className="tool-help-section" style={{ marginTop: 40 }}>
+              <div className="tool-help-icon"><Lightbulb size={24} /></div>
               <div className="tool-help-content">
                 <h5>Refinery Insight</h5>
                 <p>{TOOL_INSIGHTS[page]}</p>
               </div>
             </div>
           </div>
+        ) : (
+          <Hub setPage={setPage} logs={logs} onClearLogs={clearLogs} />
         )}
       </main>
-
-      {/* Floating Bottom Dock */}
-      <nav className="nav-dock">
-        <button
-          className={!page ? "active" : ""}
-          onClick={() => setPage(null)}
-          title="Home Hub"
-        >
-          <Layout size={20} />
-        </button>
-        <div className="dock-divider" />
-        {Object.entries(TOOL_CONFIG).map(([id, config]) => {
-          const Icon = config.icon;
-          return (
-            <button
-              key={id}
-              className={page === id ? "active" : ""}
-              onClick={() => setPage(id as PageType)}
-              title={config.label}
-            >
-              <Icon size={20} />
-            </button>
-          );
-        })}
-      </nav>
-
-      <footer style={{ position: 'fixed', bottom: 12, right: 24, color: "var(--text-muted)", fontSize: "11px", opacity: 0.5 }}>
-        v1.3.0 Master Edition
-      </footer>
-
-      <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        onSelect={(id) => setPage(id as PageType)}
-        tools={Object.entries(TOOL_CONFIG).map(([id, config]) => ({ id, ...config }))}
-      />
     </div>
   );
 }

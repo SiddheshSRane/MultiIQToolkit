@@ -4,7 +4,6 @@ import FileUpload from "../components/FileUpload";
 import {
   File as FileIcon,
   Wrench,
-  Settings,
   Download,
   Loader2,
   Zap,
@@ -63,9 +62,10 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const [renameMap, setRenameMap] = useState<Record<string, string>>({});
   const [replacementValue, setReplacementValue] = useState("");
   const [results, setResults] = useState<ProcessResult[]>([]);
-  const [sheet, setSheet] = useState<string | null>(null);
-  const [allSheets] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [sheet, setSheet] = useState<string | null>(null);
+  const [applyAllSheets, setApplyAllSheets] = useState(false);
 
   const VERCEL_PAYLOAD_LIMIT = 4.5 * 1024 * 1024; // 4.5MB
   const PREVIEW_SLICE_SIZE = 1 * 1024 * 1024; // 1MB for preview
@@ -98,6 +98,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       const data = await response.json();
       setColumns(data.columns);
       setSample(data.sample || null);
+      if (data.sheets) setAvailableSheets(data.sheets);
       if (!sheetName && data.sheets?.[0]) setSheet(data.sheets[0]);
       return data;
     } catch (e) {
@@ -170,8 +171,8 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
         formData.append("replacement", replacementValue);
       }
 
-      if (sheet) formData.append("sheet_name", sheet);
-      formData.append("all_sheets", String(allSheets));
+      if (sheet && !applyAllSheets) formData.append("sheet_name", sheet);
+      formData.append("all_sheets", String(applyAllSheets));
 
       const response = await fetchWithAuth(endpoint, {
         method: "POST",
@@ -198,7 +199,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     } finally {
       setLoading(false);
     }
-  }, [files, mode, selected, renameMap, replacementValue, sheet, allSheets, onLogAction, notify]);
+  }, [files, mode, selected, renameMap, replacementValue, sheet, applyAllSheets, onLogAction, notify]);
 
   const downloadAll = useCallback(() => {
     results.forEach((r) => downloadBlob(r.blob, r.filename));
@@ -296,9 +297,39 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
             <div style={{ paddingTop: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <Settings size={20} style={{ color: 'var(--primary)' }} />
                 <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>CONFIGURATION</h4>
               </div>
+
+              {availableSheets.length > 1 && (
+                <div style={{
+                  marginBottom: '24px',
+                  padding: '16px',
+                  background: 'var(--primary-glow)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--primary)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>Select Excel Sheet</label>
+                    <label className="checkbox" style={{ padding: '4px 8px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <input type="checkbox" checked={applyAllSheets} onChange={(e) => setApplyAllSheets(e.target.checked)} />
+                      <span style={{ fontSize: '11px', fontWeight: 700 }}>Apply to all sheets</span>
+                    </label>
+                  </div>
+                  <select
+                    value={sheet || ""}
+                    onChange={(e) => setSheet(e.target.value)}
+                    disabled={applyAllSheets}
+                    style={{
+                      width: '100%',
+                      background: 'white',
+                      opacity: applyAllSheets ? 0.5 : 1,
+                      cursor: applyAllSheets ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {availableSheets.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
 
               {mode === "remove" && (
                 <>

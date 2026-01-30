@@ -33,6 +33,9 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
 
     const [orient, setOrient] = useState("records");
     const [indent, setIndent] = useState(4);
+    const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+    const [sheet, setSheet] = useState<string | null>(null);
+    const [applyAllSheets, setApplyAllSheets] = useState(false);
 
     const handleApply = useCallback(async () => {
         if (files.length === 0) {
@@ -48,6 +51,8 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             files.forEach((f) => formData.append("files", f));
             formData.append("orient", orient);
             formData.append("indent", String(indent));
+            if (sheet && !applyAllSheets) formData.append("sheet_name", sheet);
+            formData.append("all_sheets", String(applyAllSheets));
 
             const res = await fetchWithAuth("/api/file/convert-to-json", {
                 method: "POST",
@@ -77,6 +82,32 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
         }
     }, [files, orient, indent, onLogAction, notify, dismiss]);
 
+    const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
+        setFiles(selectedFiles);
+        if (selectedFiles.length > 0 && selectedFiles[0].name.toLowerCase().endsWith('.xlsx')) {
+            try {
+                const formData = new FormData();
+                formData.append("file", selectedFiles[0]);
+                const res = await fetchWithAuth("/api/file/preview-columns", {
+                    method: "POST",
+                    body: formData,
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.sheets) {
+                        setAvailableSheets(data.sheets);
+                        setSheet(data.sheets[0]);
+                    }
+                }
+            } catch (e) {
+                console.error("Sheet preview error:", e);
+            }
+        } else {
+            setAvailableSheets([]);
+            setSheet(null);
+        }
+    }, []);
+
     const selectedOrient = ORIENT_OPTIONS.find(o => o.value === orient);
 
     return (
@@ -101,7 +132,7 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
                         <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Upload CSV or Excel files to convert</p>
                     </div>
                 </div>
-                <FileUpload files={files} onFilesSelected={setFiles} />
+                <FileUpload files={files} onFilesSelected={handleFilesSelected} />
             </div>
 
             {files.length > 0 && (
@@ -123,6 +154,46 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
                                 <Code2 size={20} style={{ color: 'var(--primary)' }} />
                                 <h4 style={{ margin: 0, fontSize: '14px', letterSpacing: '0.05em' }}>JSON STRUCTURE</h4>
                             </div>
+
+                            {availableSheets.length > 1 && (
+                                <div style={{
+                                    marginBottom: '24px',
+                                    padding: '16px',
+                                    background: 'var(--primary-glow)',
+                                    borderRadius: '12px',
+                                    border: '1px solid var(--primary)',
+                                    marginTop: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                        <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>Select Excel Sheet</label>
+                                        <label className="checkbox" style={{ padding: '4px 8px', background: 'white', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                            <input type="checkbox" checked={applyAllSheets} onChange={(e) => setApplyAllSheets(e.target.checked)} />
+                                            <span style={{ fontSize: '11px', fontWeight: 700 }}>Combine all sheets</span>
+                                        </label>
+                                    </div>
+                                    <select
+                                        value={sheet || ""}
+                                        onChange={(e) => setSheet(e.target.value)}
+                                        disabled={applyAllSheets}
+                                        style={{
+                                            width: '100%',
+                                            background: 'white',
+                                            opacity: applyAllSheets ? 0.5 : 1,
+                                            cursor: applyAllSheets ? 'not-allowed' : 'pointer',
+                                            padding: '10px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-color)'
+                                        }}
+                                    >
+                                        {availableSheets.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                        {applyAllSheets
+                                            ? "Result will be a single JSON object where each sheet name is a key."
+                                            : "Only the selected sheet will be converted."}
+                                    </p>
+                                </div>
+                            )}
 
                             <div style={{
                                 display: 'grid',
@@ -154,7 +225,7 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
                                         </div>
                                         <div style={{
                                             fontSize: '11px',
-                                            fontFamily: 'JetBrains Mono, monospace',
+                                            fontFamily: 'var(--font-mono)',
                                             color: 'var(--text-muted)',
                                             background: 'var(--card-bg)',
                                             padding: '8px',
