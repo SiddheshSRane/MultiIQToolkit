@@ -144,7 +144,8 @@ export default function Auth() {
                     padding: '8px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    zIndex: 2
                   }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
