@@ -77,7 +77,7 @@ export default function Auth() {
         </div>
 
         <h2 style={{ fontSize: 24, marginBottom: 8 }}>
-          {mode === 'signin' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+          {mode === 'signin' ? 'Welcome Back (v2)' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
         </h2>
         <p className="desc" style={{ marginBottom: 32 }}>
           {mode === 'signin' ? 'Access your elite data refinement suite.' : mode === 'signup' ? 'Start your journey with professional tools.' : 'Recover your portal access.'}
@@ -129,14 +129,15 @@ export default function Auth() {
                   style={{ paddingRight: '48px' }}
                   autoComplete={mode === 'signin' ? "current-password" : "new-password"}
                 />
-                <button
-                  type="button"
+                <span
+                  role="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  style={{ cursor: 'pointer' }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                </span>
               </div>
               {mode === 'signin' && (
                 <button type="button" onClick={() => setMode('forgot')} style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>
