@@ -77,7 +77,7 @@ export default function Auth() {
         </div>
 
         <h2 style={{ fontSize: 24, marginBottom: 8 }}>
-          {mode === 'signin' ? 'Welcome Back (v2)' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+          {mode === 'signin' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
         </h2>
         <p className="desc" style={{ marginBottom: 32 }}>
           {mode === 'signin' ? 'Access your elite data refinement suite.' : mode === 'signup' ? 'Start your journey with professional tools.' : 'Recover your portal access.'}
