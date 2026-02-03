@@ -129,15 +129,15 @@ export default function Auth() {
                   style={{ paddingRight: '48px' }}
                   autoComplete={mode === 'signin' ? "current-password" : "new-password"}
                 />
-                <span
-                  role="button"
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </span>
+                </button>
               </div>
               {mode === 'signin' && (
                 <button type="button" onClick={() => setMode('forgot')} style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>

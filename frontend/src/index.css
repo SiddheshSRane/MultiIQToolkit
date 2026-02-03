@@ -1015,20 +1015,31 @@ textarea:focus {
   /* Make it look like a distinct button */
   color: var(--primary) !important;
   /* Use a high-contrast color */
-  padding: 6px !important;
+  padding: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  z-index: 1000 !important;
-  /* Extremely high z-index to avoid stacking issues */
+  z-index: 10 !important;
+  /* High z-index to avoid stacking issues */
   cursor: pointer !important;
-  min-width: 36px !important;
-  min-height: 36px !important;
+  width: 32px !important;
+  height: 32px !important;
   border-radius: 8px !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
   transition: all 0.2s ease !important;
   opacity: 1 !important;
   visibility: visible !important;
+}
+
+[data-theme='dark'] .password-toggle {
+  background: #1f2937 !important;
+  border-color: var(--primary) !important;
+}
+
+[data-theme='cyberpunk'] .password-toggle {
+  background: #000 !important;
+  border-color: #ff00ff !important;
+  color: #ff00ff !important;
 }
 
 .password-toggle:hover {
