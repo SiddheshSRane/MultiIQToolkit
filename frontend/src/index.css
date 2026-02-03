@@ -1003,6 +1003,37 @@ textarea:focus {
   /* Hide technical meta for cleaner look */
 }
 
+/* Password Toggle Button */
+.password-toggle {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  padding: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important;
+  cursor: pointer !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.password-toggle:hover {
+  color: var(--primary) !important;
+  background: transparent !important;
+  transform: translateY(-50%) scale(1.1) !important;
+}
+
+.password-toggle svg {
+  pointer-events: none;
+}
+
 /* Buttons */
 button {
   background: var(--primary);
