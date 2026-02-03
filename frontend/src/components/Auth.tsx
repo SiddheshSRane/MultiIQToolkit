@@ -84,12 +84,12 @@ export default function Auth() {
         </p>
 
         {error && (
-          <div className="section" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', color: 'var(--danger)', padding: 12, borderRadius: 12, fontSize: 13, marginBottom: 24 }}>
+          <div className="auth-error">
             {error}
           </div>
         )}
         {success && (
-          <div className="section" style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', color: '#10b981', padding: 12, borderRadius: 12, fontSize: 13, marginBottom: 24 }}>
+          <div className="auth-success">
             {success}
           </div>
         )}
@@ -134,7 +134,6 @@ export default function Auth() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

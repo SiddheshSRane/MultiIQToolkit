@@ -1006,29 +1006,32 @@ textarea:focus {
 /* Password Toggle Button */
 .password-toggle {
   position: absolute !important;
-  right: 12px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  background: white !important;
-  /* Force a contrasting background color */
-  border: 1.5px solid var(--primary) !important;
-  /* Make it look like a distinct button */
-  color: var(--primary) !important;
-  /* Use a high-contrast color */
-  padding: 0 !important;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  padding: 8px !important;
   display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  z-index: 10 !important;
-  /* High z-index to avoid stacking issues */
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
   cursor: pointer !important;
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-  transition: all 0.2s ease !important;
-  opacity: 1 !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease;
+  opacity: 0.8;
   visibility: visible !important;
+  box-shadow: none !important;
+}
+
+.password-toggle:hover {
+  background: var(--primary-glow) !important;
+  color: var(--primary) !important;
+  opacity: 1;
+  transform: translateY(-50%) scale(1.05);
 }
 
 [data-theme='dark'] .password-toggle {
@@ -1042,15 +1045,35 @@ textarea:focus {
   color: #ff00ff !important;
 }
 
-.password-toggle:hover {
-  transform: translateY(-50%) scale(1.1) !important;
-  background: var(--primary-glow) !important;
+.password-toggle:active {
+  transform: translateY(-50%) scale(0.95);
 }
 
 .password-toggle svg {
   pointer-events: none;
-  stroke-width: 2.5px !important;
-  /* Make the icon lines thicker */
+  stroke-width: 2px;
+}
+
+.auth-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-bottom: 24px;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.auth-success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid #10b981;
+  color: #10b981;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-bottom: 24px;
+  animation: scaleIn 0.3s ease-out;
 }
 
 /* Buttons */
