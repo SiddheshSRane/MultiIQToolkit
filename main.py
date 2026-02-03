@@ -5,6 +5,7 @@ import asyncio
 import logging
 import time
 import os
+from contextlib import asynccontextmanager
 from typing import Optional, List, Tuple, Any
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
@@ -36,9 +37,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger("DataRefinery")
 
+_HTTP_CLIENT: Optional[httpx.AsyncClient] = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _HTTP_CLIENT
+    limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
+    timeout = httpx.Timeout(5.0, connect=2.0)
+    _HTTP_CLIENT = httpx.AsyncClient(limits=limits, timeout=timeout)
+    try:
+        yield
+    finally:
+        await _HTTP_CLIENT.aclose()
+        _HTTP_CLIENT = None
+
 app = FastAPI(
     title="DataRefinery API",
     version="1.1.0",
+    lifespan=lifespan,
 )
 
 # Supabase Configuration
@@ -160,19 +176,22 @@ async def get_current_user(request: Request):
 
 async def _verify_token(token: str):
     try:
-        async with httpx.AsyncClient() as client:
-            headers = {
-                "apikey": supabase_key,
-                "Authorization": f"Bearer {token}"
-            }
-            response = await client.get(f"{supabase_url}/auth/v1/user", headers=headers, timeout=5)
-            if response.status_code == 200:
-                user_data = response.json()
-                class User:
-                    def __init__(self, data):
-                        self.id = data.get("id")
-                        self.email = data.get("email")
-                return User(user_data)
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {token}"
+        }
+        if _HTTP_CLIENT is None:
+            async with httpx.AsyncClient(timeout=5) as client:
+                response = await client.get(f"{supabase_url}/auth/v1/user", headers=headers)
+        else:
+            response = await _HTTP_CLIENT.get(f"{supabase_url}/auth/v1/user", headers=headers)
+        if response.status_code == 200:
+            user_data = response.json()
+            class User:
+                def __init__(self, data):
+                    self.id = data.get("id")
+                    self.email = data.get("email")
+            return User(user_data)
         return None
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
@@ -186,20 +205,23 @@ async def log_activity(user_id: str, action: str, filename: str, file_url: Optio
         return
     
     try:
-        async with httpx.AsyncClient() as client:
-            headers = {
-                "apikey": supabase_key,
-                "Authorization": f"Bearer {supabase_key}",
-                "Content-Type": "application/json",
-                "Prefer": "return=minimal"
-            }
-            payload = {
-                "user_id": user_id,
-                "action": f"Backend: {action}",
-                "filename": filename,
-                "file_url": file_url
-            }
-            await client.post(f"{supabase_url}/rest/v1/activity_logs", headers=headers, json=payload, timeout=5)
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        payload = {
+            "user_id": user_id,
+            "action": f"Backend: {action}",
+            "filename": filename,
+            "file_url": file_url
+        }
+        if _HTTP_CLIENT is None:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(f"{supabase_url}/rest/v1/activity_logs", headers=headers, json=payload)
+        else:
+            await _HTTP_CLIENT.post(f"{supabase_url}/rest/v1/activity_logs", headers=headers, json=payload)
     except Exception as e:
         logger.error(f"Failed to log activity: {str(e)}")
 
@@ -261,11 +283,13 @@ async def flatten_files(files: List[UploadFile]) -> List[Tuple[io.BytesIO, str]]
         contents = await file.read()
         if is_zip(file.filename):
             with zipfile.ZipFile(io.BytesIO(contents)) as z:
-                total_files = len(z.namelist())
+                infos = z.infolist()
+                total_files = len(infos)
                 if total_files > MAX_FILES_IN_ZIP:
                    raise HTTPException(status_code=400, detail=f"ZIP contains too many files (Limit: {MAX_FILES_IN_ZIP})")
                 
-                for name in z.namelist():
+                for info in infos:
+                    name = info.filename
                     # Ignore directories and non-data files
                     if name.endswith('/') or os.path.basename(name).startswith('.'):
                         continue
@@ -373,7 +397,7 @@ async def unified_batch_handler(
                 base_name = result_val
                 final_ext = ".csv" if is_csv else ".xlsx"
             
-            z.writestr(f"{base_name}{ext_suffix}{final_ext}", output.getvalue())
+            z.writestr(f"{base_name}{ext_suffix}{final_ext}", output.getbuffer())
 
     zip_output.seek(0)
     return StreamingResponse(
