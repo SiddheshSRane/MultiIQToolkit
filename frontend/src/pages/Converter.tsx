@@ -92,16 +92,15 @@ export default function Converter({ onLogAction }: ConverterProps) {
       const res = await convertColumn(payload);
       setOutput(res.result);
       setStats(res.stats);
-      if (!silent) notify('success', 'Transformation Complete', 'Your text has been perfectly formatted.');
+      if (!silent) notify('success', 'Transformation Complete', 'Your text has been perfectly formatted.', 5000, toastId);
       if (onLogAction) {
         onLogAction("Text Transformation", "transformed_text.txt", new Blob([res.result], { type: "text/plain" }));
       }
     } catch (e) {
       console.error("Conversion error:", e);
       // Always show errors
-      notify('error', 'Transformation Failed', e instanceof Error ? e.message : "An unexpected error occurred.");
+      notify('error', 'Transformation Failed', e instanceof Error ? e.message : "An unexpected error occurred.", 5000, toastId);
     } finally {
-      if (!silent && toastId) dismiss(toastId);
       setLoading(false);
     }
   }, [input, delimiter, itemPrefix, itemSuffix, resultPrefix, resultSuffix, dedupe, sort, reverse, ignoreComments, stripQuotes, trimItems, caseTransform, onLogAction, notify, dismiss]);

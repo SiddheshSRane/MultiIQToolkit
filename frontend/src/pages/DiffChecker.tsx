@@ -83,12 +83,11 @@ export default function DiffChecker() {
 
             const data = await res.json();
             setDiffResult(data);
-            notify('success', 'Comparison Complete', `Found ${data.stats.changes} changes.`);
+            notify('success', 'Comparison Complete', `Found ${data.stats.changes} changes.`, 5000, toastId);
         } catch (e) {
             console.error(e);
-            notify('error', 'Error', "Failed to compute diff.");
+            notify('error', 'Error', "Failed to compute diff.", 5000, toastId);
         } finally {
-            dismiss(toastId);
             setLoading(false);
         }
     }, [text1, text2, ignoreWhitespace, ignoreCase, notify, dismiss]);

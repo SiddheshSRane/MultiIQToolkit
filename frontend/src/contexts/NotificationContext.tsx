@@ -13,7 +13,7 @@ interface Notification {
 }
 
 interface NotificationContextType {
-    notify: (type: NotificationType, message: string, description?: string, duration?: number) => string;
+    notify: (type: NotificationType, message: string, description?: string, duration?: number, id?: string) => string;
     dismiss: (id: string) => void;
 }
 
@@ -33,24 +33,34 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setNotifications((prev) => prev.filter((n) => n.id !== id));
     }, []);
 
-    const notify = useCallback((type: NotificationType, message: string, description?: string, duration = 5000) => {
-        // Deduplication Logic
-        const signature = `${type}:${message}`;
-        const now = Date.now();
+    const notify = useCallback((type: NotificationType, message: string, description?: string, duration = 5000, updateId?: string) => {
+        // Deduplication Logic (only for non-updates)
+        if (!updateId) {
+            const signature = `${type}:${message}`;
+            const now = Date.now();
 
-        if (lastNotificationRef.current &&
-            lastNotificationRef.current.signature === signature &&
-            now - lastNotificationRef.current.timestamp < 1000) {
-            // Duplicate detected within 1s, ignore
-            return "";
+            if (lastNotificationRef.current &&
+                lastNotificationRef.current.signature === signature &&
+                now - lastNotificationRef.current.timestamp < 1000) {
+                return "";
+            }
+            lastNotificationRef.current = { signature, timestamp: now };
         }
 
-        lastNotificationRef.current = { signature, timestamp: now };
-
-        const id = Math.random().toString(36).substr(2, 9);
+        const id = updateId || Math.random().toString(36).substr(2, 9);
         const newNotification: Notification = { id, type, message, description, duration };
 
-        setNotifications((prev) => [newNotification, ...prev]);
+        setNotifications((prev) => {
+            if (updateId) {
+                const index = prev.findIndex(n => n.id === updateId);
+                if (index !== -1) {
+                    const next = [...prev];
+                    next[index] = newNotification;
+                    return next;
+                }
+            }
+            return [newNotification, ...prev];
+        });
 
         if (type !== 'loading') {
             setTimeout(() => dismiss(id), duration);

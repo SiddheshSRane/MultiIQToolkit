@@ -7,6 +7,7 @@ import JsonConverter from "./pages/JsonConverter";
 import TemplateMapper from "./pages/TemplateMapper";
 import QrFusion from "./pages/QrFusion";
 import DiffChecker from "./pages/DiffChecker";
+import FileSplitter from "./pages/FileSplitter";
 import Auth from "./components/Auth";
 import type { LogEntry } from "./components/ActivityLog";
 import { useState, useCallback, useEffect } from "react";
@@ -29,10 +30,11 @@ import {
   Moon,
   Sun,
   GitCompare,
-  Zap
+  Zap,
+  Scissors
 } from "lucide-react";
 
-type PageType = "convert" | "file" | "merge" | "datetime" | "json" | "map" | "qr" | "diff" | null;
+type PageType = "convert" | "file" | "merge" | "datetime" | "json" | "map" | "qr" | "diff" | "split" | null;
 
 const TOOL_INSIGHTS: Record<string, string> = {
   convert: "The Text Transformer uses high-speed streaming for large lists. Tip: Use 'Quoted CSV' preset for database imports.",
@@ -43,6 +45,7 @@ const TOOL_INSIGHTS: Record<string, string> = {
   map: "Perfect for ERP migrations. Create a visual bridge between source data and your target system schema.",
   qr: "Generate scannable, protocol-correct assets. Wi-Fi mode handles WPA/WPA2 protocol sculpting automatically.",
   diff: "Visualizing code differences side-by-side helps catch regression bugs before they hit regression testing.",
+  split: "Large files can be split into smaller chunks to bypass platform limits or for easier distributed processing.",
 };
 
 
@@ -73,6 +76,7 @@ export default function App() {
               timestamp: new Date(l.created_at).toLocaleTimeString(),
               action: l.action,
               filename: l.filename,
+              file_url: l.file_url,
               blob: undefined
             })));
           }
@@ -191,6 +195,10 @@ export default function App() {
                         <Combine size={18} color="#8b5cf6" />
                         <span>File Merger</span>
                       </div>
+                      <div className="menu-link" onClick={() => setPage('split')}>
+                        <Scissors size={18} color="#ec4899" />
+                        <span>File Splitter</span>
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -274,6 +282,7 @@ export default function App() {
               {page === "map" && <TemplateMapper onLogAction={addLog} />}
               {page === "qr" && <QrFusion onLogAction={addLog} />}
               {page === "diff" && <DiffChecker />}
+              {page === "split" && <FileSplitter onLogAction={addLog} />}
             </div>
 
             <div className="tool-help-section" style={{ marginTop: 40 }}>

@@ -103,8 +103,16 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
             return;
         }
 
+        const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
+        const filesToCheck = [templateFile, dataFile];
+        const largeFile = filesToCheck.find(f => f && f.size > VERCEL_PAYLOAD_LIMIT);
+        if (largeFile) {
+            notify('error', 'File Too Large', `"${largeFile.name}" exceeds the 100MB threshold. Please use the 'File Splitter' tool to divide it into smaller parts first.`);
+            return;
+        }
+
         setLoading(true);
-        notify('loading', 'Mapping Data', 'Applying field mappings...');
+        const loadingId = notify('loading', 'Mapping Data', 'Applying field mappings...');
 
         try {
             const fd = new FormData();
@@ -120,11 +128,11 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
 
             const blob = await res.blob();
             downloadBlob(blob, `mapped_${dataFile.name}`);
-            notify('success', 'Mapping Complete', 'Your mapped file is ready.');
+            notify('success', 'Mapping Complete', 'Your mapped file is ready.', 5000, loadingId);
             if (onLogAction) onLogAction("Map Template", `mapped_${dataFile.name}`, blob);
         } catch (e) {
             console.error("Mapping error:", e);
-            notify('error', 'Mapping Failed', e instanceof Error ? e.message : "An error occurred.");
+            notify('error', 'Mapping Failed', e instanceof Error ? e.message : "An error occurred.", 5000, loadingId);
         } finally {
             setLoading(false);
         }

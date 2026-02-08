@@ -67,7 +67,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   const [sheet, setSheet] = useState<string | null>(null);
   const [applyAllSheets, setApplyAllSheets] = useState(false);
 
-  const VERCEL_PAYLOAD_LIMIT = 4.5 * 1024 * 1024; // 4.5MB
+  const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
   const PREVIEW_SLICE_SIZE = 1 * 1024 * 1024; // 1MB for preview
 
   const sliceFileForPreview = useCallback((file: File): Blob | File => {
@@ -147,12 +147,12 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
     const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
     if (largeFile) {
-      notify('error', 'File Too Large', `"${largeFile.name}" is too large for the platform (Limit: 4.5MB). Please compress or split the file.`);
+      notify('error', 'File Too Large', `"${largeFile.name}" exceeds the 100MB threshold. Please use the 'File Splitter' tool to divide your file into smaller parts first.`);
       return;
     }
 
     setLoading(true);
-    notify('loading', 'Processing Files', `Applying ${mode} operation...`);
+    const loadingId = notify('loading', 'Processing Files', `Applying ${mode} operation...`);
 
     try {
       const endpoint = API_ENDPOINTS[mode.toUpperCase() as keyof typeof API_ENDPOINTS];
@@ -190,12 +190,12 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
 
       downloadBlob(blob, outName);
       setResults([{ blob, filename: outName }]);
-      notify('success', 'Operation Complete', `Successfully processed ${files.length} file(s).`);
+      notify('success', 'Operation Complete', `Successfully processed ${files.length} file(s).`, 5000, loadingId);
 
       if (onLogAction) onLogAction(`File ${mode}`, outName, blob);
     } catch (e) {
       console.error("Processing error:", e);
-      notify('error', 'Processing Failed', e instanceof Error ? e.message : "An error occurred.");
+      notify('error', 'Processing Failed', e instanceof Error ? e.message : "An error occurred.", 5000, loadingId);
     } finally {
       setLoading(false);
     }

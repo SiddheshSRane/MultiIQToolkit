@@ -43,6 +43,13 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             return;
         }
 
+        const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
+        const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
+        if (largeFile) {
+            notify('error', 'File Too Large', `"${largeFile.name}" exceeds the 100MB threshold. Please use the 'File Splitter' tool to divide it into smaller parts first.`);
+            return;
+        }
+
         setLoading(true);
         const toastId = notify('loading', 'Converting to JSON', 'Transforming your data...');
 
@@ -70,14 +77,13 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             const outName = extractFilename(contentDisposition, defaultName);
 
             downloadBlob(blob, outName);
-            notify('success', 'Conversion Complete', `Successfully converted ${files.length} file(s) to JSON.`);
+            notify('success', 'Conversion Complete', `Successfully converted ${files.length} file(s) to JSON.`, 5000, toastId);
             if (onLogAction) onLogAction("Convert to JSON", outName, blob);
 
         } catch (e) {
             console.error("JSON conversion error:", e);
-            notify('error', 'Conversion Failed', e instanceof Error ? e.message : "An error occurred.");
+            notify('error', 'Conversion Failed', e instanceof Error ? e.message : "An error occurred.", 5000, toastId);
         } finally {
-            dismiss(toastId);
             setLoading(false);
         }
     }, [files, orient, indent, onLogAction, notify, dismiss]);

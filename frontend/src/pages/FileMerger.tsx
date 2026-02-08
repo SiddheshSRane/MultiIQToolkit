@@ -51,7 +51,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
     const [resultBlob, setResultBlob] = useState<Blob | null>(null);
     const [resultFilename, setResultFilename] = useState<string | null>(null);
 
-    const VERCEL_PAYLOAD_LIMIT = 4.5 * 1024 * 1024; // 4.5MB
+    const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
     const PREVIEW_SLICE_SIZE = 1 * 1024 * 1024; // 1MB for preview
 
     const sliceFileForPreview = useCallback((file: File): Blob | File => {
@@ -117,7 +117,7 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
 
         const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
         if (largeFile) {
-            notify('error', 'File Too Large', `"${largeFile.name}" is too large for the platform (Limit: 4.5MB). Please compress or split the file.`);
+            notify('error', 'File Too Large', `"${largeFile.name}" exceeds the 100MB threshold. Please use the 'File Splitter' tool to divide it into smaller parts first.`);
             return;
         }
 
@@ -158,14 +158,13 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
             downloadBlob(blob, outName);
             setResultBlob(blob);
             setResultFilename(outName);
-            notify('success', 'Merge Complete', `Consolidated ${files.length} files successfully.`);
+            notify('success', 'Merge Complete', `Consolidated ${files.length} files successfully.`, 5000, toastId);
 
             if (onLogAction) onLogAction("Merge Files", outName, blob);
         } catch (e) {
             console.error("Merge error:", e);
-            notify('error', 'Merge Failed', e instanceof Error ? e.message : "An error occurred.");
+            notify('error', 'Merge Failed', e instanceof Error ? e.message : "An error occurred.", 5000, toastId);
         } finally {
-            dismiss(toastId);
             setLoading(false);
         }
     }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinKey, onLogAction, notify, dismiss, VERCEL_PAYLOAD_LIMIT]);

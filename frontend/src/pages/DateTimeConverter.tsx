@@ -130,16 +130,15 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             const data = await res.json();
             setOutput(data.result);
             setStats(data.stats);
-            notify('success', 'Conversion Complete', 'Dates standardized successfully.');
+            notify('success', 'Conversion Complete', 'Dates standardized successfully.', 5000, toastId);
 
             if (onLogAction) {
                 onLogAction("DateTime Conversion", "dates.txt", new Blob([data.result], { type: "text/plain" }));
             }
         } catch (e) {
             console.error("Conversion error:", e);
-            notify('error', 'Conversion Failed', e instanceof Error ? e.message : "Conversion failed.");
+            notify('error', 'Conversion Failed', e instanceof Error ? e.message : "Conversion failed.", 5000, toastId);
         } finally {
-            dismiss(toastId);
             setLoading(false);
         }
     }, [input, getTargetFormat, onLogAction, notify, dismiss]);
@@ -147,6 +146,13 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
     const handleConvertFile = useCallback(async () => {
         if (files.length === 0 || selectedCols.length === 0) {
             notify('error', 'Selection Required', "Please select files and at least one column.");
+            return;
+        }
+
+        const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
+        const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
+        if (largeFile) {
+            notify('error', 'File Too Large', `"${largeFile.name}" exceeds the 100MB threshold. Please use the 'File Splitter' tool to divide it into smaller parts first.`);
             return;
         }
 
@@ -177,13 +183,12 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
             const outName = extractFilename(contentDisposition, defaultName);
 
             downloadBlob(blob, outName);
-            notify('success', 'Export Complete', `Processed ${files.length} file(s) successfully.`);
+            notify('success', 'Export Complete', `Processed ${files.length} file(s) successfully.`, 5000, toastId);
             if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
         } catch (e) {
             console.error("File conversion error:", e);
-            notify('error', 'Process Failed', e instanceof Error ? e.message : "Error during processing.");
+            notify('error', 'Process Failed', e instanceof Error ? e.message : "Error during processing.", 5000, toastId);
         } finally {
-            dismiss(toastId);
             setLoading(false);
         }
     }, [files, selectedCols, getTargetFormat, sheet, applyAllSheets, onLogAction, notify, dismiss]);

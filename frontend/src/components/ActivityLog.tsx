@@ -8,6 +8,7 @@ export type LogEntry = {
     timestamp: string;
     action: string;
     filename: string;
+    file_url?: string;
     blob?: Blob;
 };
 
@@ -20,11 +21,18 @@ export default function ActivityLog({ logs, onClear }: ActivityLogProps) {
     const { notify } = useNotifications();
 
     const download = useCallback((log: LogEntry) => {
-        if (!log.blob) {
+        if (!log.blob && !log.file_url) {
             notify('info', 'Export Unavailable', 'Processed files are only downloadable in this session.');
             return;
         }
-        const url = URL.createObjectURL(log.blob);
+
+        if (log.file_url) {
+            window.open(log.file_url, '_blank');
+            notify('info', 'Remote Export', `Opening cloud link for ${log.filename}...`);
+            return;
+        }
+
+        const url = URL.createObjectURL(log.blob!);
         const link = document.createElement("a");
         link.href = url;
         link.download = log.filename;
@@ -32,7 +40,7 @@ export default function ActivityLog({ logs, onClear }: ActivityLogProps) {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(url), 100);
-        notify('info', 'File Exported', `Downloading ${log.filename}...`);
+        notify('info', 'Local Export', `Downloading session file ${log.filename}...`);
     }, [notify]);
 
     const handleClear = () => {
