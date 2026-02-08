@@ -149,26 +149,19 @@ function replaceBlankValues(buffer, { replace_value, sheet_name, apply_all_sheet
 
 function convertDatetimeColumn(buffer, { column_names, target_format, sheet_name, apply_all_sheets = false, is_csv = false } = {}) {
     try {
+        const { parseFlexible, mapStrftimeToDayjs } = require('./textUtils');
+        const dayjsFmt = mapStrftimeToDayjs(target_format);
+
         const processData = (data) => {
             return data.map(row => {
                 const newRow = { ...row };
                 column_names.forEach(col => {
                     if (newRow[col]) {
                         const val = String(newRow[col]).trim();
-                        let d;
-                        if (/^\d+$/.test(val)) {
-                            const num = parseInt(val, 10);
-                            if (num >= 4000 && num <= 60000) d = dayjs('1899-12-30').add(num, 'day');
-                            else if (num >= 1000000000 && num <= 2147483647) d = dayjs.unix(num);
-                            else if (num >= 1000000000000 && num <= 2147483647000) d = dayjs(num);
-                        }
-                        if (!d || !d.isValid()) d = dayjs(val);
+                        const d = parseFlexible(val);
 
                         if (d && d.isValid()) {
-                            let fmt = target_format;
-                            if (fmt === "ISO 8601") fmt = "YYYY-MM-DDTHH:mm:ss";
-                            const mappedFmt = fmt.replace('%Y', 'YYYY').replace('%m', 'MM').replace('%d', 'DD').replace('%H', 'HH').replace('%M', 'mm').replace('%S', 'ss');
-                            newRow[col] = d.format(mappedFmt);
+                            newRow[col] = d.format(dayjsFmt);
                         }
                     }
                 });
