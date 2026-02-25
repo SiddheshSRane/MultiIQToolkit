@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { fetchWithAuth } from "../api/client";
+import { convertToJson, previewColumns } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import { useNotifications } from "../contexts/NotificationContext";
 import {
@@ -11,8 +11,7 @@ import {
     Code2,
     FileJson
 } from "lucide-react";
-import { downloadBlob, extractFilename } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
+import { downloadBlob } from "../utils/download";
 
 interface JsonConverterProps {
     onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -27,7 +26,7 @@ const ORIENT_OPTIONS = [
 ];
 
 export default function JsonConverter({ onLogAction }: JsonConverterProps) {
-    const { notify, dismiss } = useNotifications();
+    const { notify } = useNotifications();
     const [files, setFiles] = useState<File[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -43,42 +42,22 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
             return;
         }
 
-        const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
-        const largeFile = files.find(f => f.size > VERCEL_PAYLOAD_LIMIT);
-        if (largeFile) {
-            notify('error', 'File Too Large', `"${largeFile.name}" exceeds the 100MB threshold. Please use the 'File Splitter' tool to divide it into smaller parts first.`);
-            return;
-        }
-
         setLoading(true);
         const toastId = notify('loading', 'Converting to JSON', 'Transforming your data...');
 
         try {
-            const formData = new FormData();
-            files.forEach((f) => formData.append("files", f));
-            formData.append("orient", orient);
-            formData.append("indent", String(indent));
-            if (sheet && !applyAllSheets) formData.append("sheet_name", sheet);
-            formData.append("all_sheets", String(applyAllSheets));
+            const params = {
+                orient,
+                indent,
+                sheetName: sheet,
+                allSheets: applyAllSheets
+            };
 
-            const res = await fetchWithAuth("/api/file/convert-to-json", {
-                method: "POST",
-                body: formData,
-            });
+            const { blob, filename } = await convertToJson(files, params);
 
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const blob = await res.blob();
-            const contentDisposition = res.headers.get("content-disposition");
-            const defaultName = files.length > 1 ? "json_export_batch.zip" : `${files[0].name.split('.')[0]}.json`;
-            const outName = extractFilename(contentDisposition, defaultName);
-
-            downloadBlob(blob, outName);
+            downloadBlob(blob, filename);
             notify('success', 'Conversion Complete', `Successfully converted ${files.length} file(s) to JSON.`, 5000, toastId);
-            if (onLogAction) onLogAction("Convert to JSON", outName, blob);
+            if (onLogAction) onLogAction("Convert to JSON", filename, blob);
 
         } catch (e) {
             console.error("JSON conversion error:", e);
@@ -86,24 +65,16 @@ export default function JsonConverter({ onLogAction }: JsonConverterProps) {
         } finally {
             setLoading(false);
         }
-    }, [files, orient, indent, onLogAction, notify, dismiss]);
+    }, [files, orient, indent, sheet, applyAllSheets, onLogAction, notify]);
 
     const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
         setFiles(selectedFiles);
         if (selectedFiles.length > 0 && selectedFiles[0].name.toLowerCase().endsWith('.xlsx')) {
             try {
-                const formData = new FormData();
-                formData.append("file", selectedFiles[0]);
-                const res = await fetchWithAuth("/api/file/preview-columns", {
-                    method: "POST",
-                    body: formData,
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.sheets) {
-                        setAvailableSheets(data.sheets);
-                        setSheet(data.sheets[0]);
-                    }
+                const data = await previewColumns(selectedFiles[0]);
+                if (data.sheets) {
+                    setAvailableSheets(data.sheets);
+                    setSheet(data.sheets[0]);
                 }
             } catch (e) {
                 console.error("Sheet preview error:", e);

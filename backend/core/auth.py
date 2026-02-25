@@ -88,3 +88,49 @@ async def log_activity(user_id: str, action: str, filename: str, file_url: Optio
             await _HTTP_CLIENT.post(f"{supabase_url}/rest/v1/activity_logs", headers=headers, json=payload)
     except Exception as e:
         logger.error(f"Failed to log activity: {str(e)}")
+
+async def upload_processed_file(user_id: str, filename: str, buffer):
+    """
+    Uploads a processed file to Supabase Storage bucket 'refinery-outputs'.
+    """
+    if not supabase_url or not supabase_key:
+        return None
+
+    try:
+        file_path = f"{user_id}/{int(time.time() * 1000)}_{filename}"
+        
+        content_type = "application/octet-stream"
+        if filename.endswith(".csv"): content_type = "text/csv"
+        elif filename.endswith(".xlsx"): content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif filename.endswith(".json"): content_type = "application/json"
+        elif filename.endswith(".zip"): content_type = "application/zip"
+
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": content_type,
+            "x-upsert": "true"
+        }
+        
+        if hasattr(buffer, 'seek'):
+            buffer.seek(0)
+            data = buffer.read()
+        else:
+            data = buffer
+
+        url = f"{supabase_url}/storage/v1/object/refinery-outputs/{file_path}"
+        
+        if _HTTP_CLIENT is None:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(url, headers=headers, content=data)
+        else:
+            response = await _HTTP_CLIENT.post(url, headers=headers, content=data)
+            
+        if response.status_code == 200:
+            return f"{supabase_url}/storage/v1/object/public/refinery-outputs/{file_path}"
+        else:
+            logger.error(f"Storage upload failed: {response.status_code} {response.text}")
+            return None
+    except Exception as e:
+        logger.error(f"Storage error: {str(e)}")
+        return None

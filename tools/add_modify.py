@@ -293,4 +293,59 @@ def convert_datetime_column(
     except Exception as e:
         logger.error(f"convert_datetime_column error: {str(e)}", exc_info=True)
         return None, str(e)
+
+
+# ==========================================================
+# TOOL 5: SPLIT FILE
+# ==========================================================
+
+def split_file(
+    file,
+    rows_per_split: int,
+    is_csv: bool = False
+) -> Tuple[Optional[BytesIO], str]:
+    """
+    Splits a single file into multiple parts based on rows per split.
+    Returns a ZIP containing the chunks.
+    """
+    import zipfile
+    try:
+        output_zip = BytesIO()
+        original_name = _safe_filename(file)
+        extension = ".csv" if is_csv else ".xlsx"
+        
+        if is_csv:
+            df = _read_csv(file)
+        else:
+            sheets = _read_excel_sheets(file)
+            if not sheets:
+                return None, "No sheets found."
+            first_sheet_name = list(sheets.keys())[0]
+            df = sheets[first_sheet_name]
+
+        if len(df) <= rows_per_split:
+            return None, "File is smaller than or equal to the split size threshold."
+
+        with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as z:
+            for i in range(0, len(df), rows_per_split):
+                chunk = df.iloc[i : i + rows_per_split]
+                chunk_io = BytesIO()
+                
+                if is_csv:
+                    chunk.to_csv(chunk_io, index=False)
+                else:
+                    # chunk.to_excel requires a Writer for multi-sheet or specific engines
+                    with pd.ExcelWriter(chunk_io, engine="openpyxl") as writer:
+                        chunk.to_excel(writer, index=False, sheet_name="Sheet1")
+                
+                chunk_io.seek(0)
+                part_num = (i // rows_per_split) + 1
+                z.writestr(f"{original_name}_part_{part_num}{extension}", chunk_io.getvalue())
+
+        output_zip.seek(0)
+        return output_zip, ".zip"
+
+    except Exception as e:
+        logger.error(f"split_file error: {str(e)}", exc_info=True)
+        return None, str(e)
 # ==========================================================

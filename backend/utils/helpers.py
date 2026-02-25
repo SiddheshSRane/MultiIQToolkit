@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional
 from fastapi import UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from backend.core.config import logger, executor
-from backend.core.auth import log_activity
+from backend.core.auth import log_activity, upload_processed_file
 from tools.zip_handler import is_zip
 
 def read_df(file_obj, filename: str, nrows: Optional[int] = None, sheet_name: Optional[str] = None) -> pd.DataFrame:
@@ -77,16 +77,14 @@ async def unified_batch_handler(
     args_dict,
     action_name,
     ext_suffix,
-    user=None
+    user=None,
+    background_tasks=None
 ):
     """
     Handles multiple files (and ZIPs) and returns a single file or a ZIP of processed files.
     """
     import zipfile
     flat_files = await flatten_files(files)
-    
-    if user:
-        await log_activity(user.id, action_name, f"{len(flat_files)} files")
     
     if not flat_files:
         raise HTTPException(status_code=400, detail="No valid CSV or Excel files found.")
@@ -110,7 +108,16 @@ async def unified_batch_handler(
         output.seek(0)
         final_ext = res_ext if res_ext.startswith('.') else (".csv" if is_csv else ".xlsx")
         base_name = os.path.splitext(filename)[0]
-        
+        final_filename = f"{base_name}{ext_suffix}{final_ext}"
+
+        if user and background_tasks:
+            async def bg_task():
+                file_url = await upload_processed_file(user.id, final_filename, output.getvalue())
+                await log_activity(user.id, action_name, final_filename, file_url)
+            background_tasks.add_task(bg_task)
+        elif user:
+            await log_activity(user.id, action_name, final_filename)
+
         if final_ext == ".json" or final_ext == ".txt":
             media_type = "application/json" if final_ext == ".json" else "text/plain"
         elif final_ext == ".csv":

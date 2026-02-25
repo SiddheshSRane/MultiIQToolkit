@@ -1,11 +1,11 @@
 import asyncio
 import pandas as pd
 import io
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from backend.core.config import executor
-from backend.core.auth import get_current_user, log_activity
+from backend.core.auth import get_current_user, log_activity, upload_processed_file
 from tools.list_tools import convert_column_advanced, convert_dates_text, column_stats
 
 router = APIRouter(prefix="/api", tags=["text"])
@@ -62,7 +62,7 @@ async def convert(payload: ConvertRequest, user=Depends(get_current_user)):
     return {"result": result, "stats": stats}
 
 @router.post("/convert/export-xlsx")
-async def export_xlsx(payload: ConvertRequest, user=Depends(get_current_user)):
+async def export_xlsx(payload: ConvertRequest, user=Depends(get_current_user), background_tasks: BackgroundTasks = BackgroundTasks()):
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(
         executor,
@@ -86,12 +86,18 @@ async def export_xlsx(payload: ConvertRequest, user=Depends(get_current_user)):
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="ConvertedData")
     output.seek(0)
+    
+    filename = "conversion.xlsx"
     if user:
-        await log_activity(user.id, "Download CSV as XLSX", "conversion.xlsx")
+        async def bg_task():
+            file_url = await upload_processed_file(user.id, filename, output.getvalue())
+            await log_activity(user.id, "Download CSV as XLSX", filename, file_url)
+        background_tasks.add_task(bg_task)
+
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="conversion.xlsx"'}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 @router.post("/convert/datetime")
@@ -105,7 +111,7 @@ async def convert_datetime_text_api(payload: DateTimeConvertRequest, user=Depend
     return {"result": result, "stats": stats}
 
 @router.post("/convert/datetime/export-xlsx")
-async def export_datetime_xlsx(payload: DateTimeConvertRequest, user=Depends(get_current_user)):
+async def export_datetime_xlsx(payload: DateTimeConvertRequest, user=Depends(get_current_user), background_tasks: BackgroundTasks = BackgroundTasks()):
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(executor, lambda: convert_dates_text(payload.text, payload.target_format))
     items = result.splitlines()

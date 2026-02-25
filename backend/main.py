@@ -21,13 +21,22 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="DataRefinery API",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
 # =====================
 # MIDDLEWARE
 # =====================
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -83,7 +92,7 @@ app.include_router(template.router)
 
 @app.api_route("/api", methods=["GET", "HEAD"])
 def read_root():
-    return {"status": "ok", "message": "DataRefinery API is running", "version": "1.1.0"}
+    return {"status": "ok", "message": "DataRefinery API is running", "version": "1.2.0"}
 
 @app.get("/api/health")
 def health_check():

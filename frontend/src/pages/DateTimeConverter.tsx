@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { fetchWithAuth } from "../api/client";
+import { convertDateTimeText, modifyFiles, previewColumns } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     Keyboard,
@@ -14,8 +14,7 @@ import {
     Sparkles,
     Globe
 } from "lucide-react";
-import { downloadBlob, extractFilename } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
+import { downloadBlob } from "../utils/download";
 import { useNotifications } from "../contexts/NotificationContext";
 
 interface ConversionStats {
@@ -39,7 +38,8 @@ const DATE_FORMATS = [
 ];
 
 export default function DateTimeConverter({ onLogAction }: DateTimeConverterProps) {
-    const { notify, dismiss } = useNotifications();
+    const { notify } = useNotifications();
+    const VERCEL_PAYLOAD_LIMIT = 100 * 1024 * 1024; // 100MB
     const [mode, setMode] = useState<"paste" | "file">("paste");
 
     // ... (state)
@@ -65,21 +65,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
     // Fetch column preview
     const fetchPreview = useCallback(async (f: File, sheetName?: string | null) => {
         try {
-            const fd = new FormData();
-            fd.append("file", f);
-            if (sheetName) fd.append("sheet_name", sheetName);
-
-            const res = await fetchWithAuth("/api/file/preview-columns", {
-                method: "POST",
-                body: fd,
-            });
-
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const data = await res.json();
+            const data = await previewColumns(f, sheetName);
             if (data.sheets) setAvailableSheets(data.sheets);
             const firstSheet = data.sheets ? data.sheets[0] : null;
             if (!sheetName && firstSheet) {
@@ -113,21 +99,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         const toastId = notify('loading', 'Converting Dates', 'Standardizing date formats...');
 
         try {
-            const res = await fetchWithAuth("/api/convert/datetime", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    text: input,
-                    target_format: getTargetFormat(),
-                }),
-            });
-
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const data = await res.json();
+            const data = await convertDateTimeText(input, getTargetFormat());
             setOutput(data.result);
             setStats(data.stats);
             notify('success', 'Conversion Complete', 'Dates standardized successfully.', 5000, toastId);
@@ -141,7 +113,7 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         } finally {
             setLoading(false);
         }
-    }, [input, getTargetFormat, onLogAction, notify, dismiss]);
+    }, [input, getTargetFormat, onLogAction, notify]);
 
     const handleConvertFile = useCallback(async () => {
         if (files.length === 0 || selectedCols.length === 0) {
@@ -160,38 +132,25 @@ export default function DateTimeConverter({ onLogAction }: DateTimeConverterProp
         const toastId = notify('loading', 'Processing Files', 'Converting date columns...');
 
         try {
-            const fd = new FormData();
-            files.forEach(f => fd.append("files", f));
-            fd.append("column", selectedCols.join(","));
-            fd.append("target_format", getTargetFormat());
-            if (sheet && !applyAllSheets) fd.append("sheet_name", sheet);
-            fd.append("all_sheets", String(applyAllSheets));
+            const params = {
+                column: selectedCols.join(","),
+                targetFormat: getTargetFormat(),
+                sheetName: sheet,
+                allSheets: applyAllSheets
+            };
 
-            const res = await fetchWithAuth("/api/file/convert-datetime", {
-                method: "POST",
-                body: fd,
-            });
+            const { blob, filename } = await modifyFiles('datetime', files, params);
 
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const blob = await res.blob();
-            const contentDisposition = res.headers.get("content-disposition");
-            const defaultName = files.length > 1 ? "converted_dates_batch.zip" : files[0].name;
-            const outName = extractFilename(contentDisposition, defaultName);
-
-            downloadBlob(blob, outName);
+            downloadBlob(blob, filename);
             notify('success', 'Export Complete', `Processed ${files.length} file(s) successfully.`, 5000, toastId);
-            if (onLogAction) onLogAction("File DateTime Conversion", outName, blob);
+            if (onLogAction) onLogAction("File DateTime Conversion", filename, blob);
         } catch (e) {
             console.error("File conversion error:", e);
             notify('error', 'Process Failed', e instanceof Error ? e.message : "Error during processing.", 5000, toastId);
         } finally {
             setLoading(false);
         }
-    }, [files, selectedCols, getTargetFormat, sheet, applyAllSheets, onLogAction, notify, dismiss]);
+    }, [files, selectedCols, getTargetFormat, sheet, applyAllSheets, onLogAction, notify, VERCEL_PAYLOAD_LIMIT]);
 
     const handleCopy = useCallback(async () => {
         try {

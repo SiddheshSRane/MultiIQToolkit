@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { fetchWithAuth } from "../api/client";
+import { getTemplateHeaders, mapTemplate, previewTemplate } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     ClipboardList,
@@ -12,7 +12,6 @@ import {
     Sparkles
 } from "lucide-react";
 import { downloadBlob } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
 import { useNotifications } from "../contexts/NotificationContext";
 
 type MappingRule = {
@@ -47,12 +46,8 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     const [searchTerm, setSearchTerm] = useState("");
 
     const loadTemplateHeaders = useCallback(async (file: File) => {
-        const fd = new FormData();
-        fd.append("file", file);
         try {
-            const res = await fetchWithAuth("/api/file/template-headers", { method: "POST", body: fd });
-            if (!res.ok) throw new Error("Failed to load template headers");
-            const data = await res.json();
+            const data = await getTemplateHeaders(file);
             setTemplateHeaders(data.headers);
 
             const newMapping: Record<string, MappingRule> = {};
@@ -67,15 +62,8 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
     }, [notify]);
 
     const loadDataHeaders = useCallback(async (file: File) => {
-        const fd = new FormData();
-        fd.append("file", file);
         try {
-            const res = await fetchWithAuth("/api/file/template-headers", { method: "POST", body: fd });
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-            const data = await res.json();
+            const data = await getTemplateHeaders(file);
             setDataHeaders(data.headers);
         } catch (e) {
             console.error("Data error:", e);
@@ -115,21 +103,10 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
         const loadingId = notify('loading', 'Mapping Data', 'Applying field mappings...');
 
         try {
-            const fd = new FormData();
-            fd.append("template_headers", JSON.stringify(templateHeaders));
-            fd.append("data_file", dataFile);
-            fd.append("mapping_json", JSON.stringify(mapping));
-
-            const res = await fetchWithAuth("/api/file/template-map", { method: "POST", body: fd });
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const blob = await res.blob();
-            downloadBlob(blob, `mapped_${dataFile.name}`);
+            const { blob, filename } = await mapTemplate(templateHeaders, dataFile, mapping);
+            downloadBlob(blob, filename);
             notify('success', 'Mapping Complete', 'Your mapped file is ready.', 5000, loadingId);
-            if (onLogAction) onLogAction("Map Template", `mapped_${dataFile.name}`, blob);
+            if (onLogAction) onLogAction("Map Template", filename, blob);
         } catch (e) {
             console.error("Mapping error:", e);
             notify('error', 'Mapping Failed', e instanceof Error ? e.message : "An error occurred.", 5000, loadingId);
@@ -142,13 +119,7 @@ export default function TemplateMapper({ onLogAction }: TemplateMapperProps) {
         if (!templateFile || !dataFile || templateHeaders.length === 0) return;
         setLoading(true);
         try {
-            const fd = new FormData();
-            fd.append("template_headers", JSON.stringify(templateHeaders));
-            fd.append("data_file", dataFile);
-            fd.append("mapping_json", JSON.stringify(mapping));
-
-            const res = await fetchWithAuth("/api/file/template-preview", { method: "POST", body: fd });
-            const data = await res.json();
+            const data = await previewTemplate(templateHeaders, dataFile, mapping);
             if (data.headers) setPreview(data);
         } catch (e) {
             console.error("Preview error:", e);

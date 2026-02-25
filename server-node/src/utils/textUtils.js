@@ -178,10 +178,119 @@ function convertDatesText(text, targetFormat) {
     }
 }
 
+const Diff = require('diff');
+
+function computeDiff(text1, text2, { ignoreWhitespace = false, ignoreCase = false } = {}) {
+    const lines1 = text1.split(/\r?\n/);
+    const lines2 = text2.split(/\r?\n/);
+
+    const diff = Diff.diffLines(text1, text2, {
+        ignoreCase,
+        ignoreWhitespace
+    });
+
+    const diffRows = [];
+    let l_idx = 0;
+    let r_idx = 0;
+
+    const splitLines = (str) => {
+        const parts = str.split(/\r?\n/);
+        // If string ends with newline, split adds an extra empty element
+        if (str.endsWith('\n')) parts.pop();
+        return parts;
+    };
+
+    for (let i = 0; i < diff.length; i++) {
+        const part = diff[i];
+        const partLines = splitLines(part.value);
+
+        if (!part.added && !part.removed) {
+            // Equal
+            for (let k = 0; k < partLines.length; k++) {
+                diffRows.push({
+                    type: 'equal',
+                    left: { num: l_idx + 1, text: lines1[l_idx] },
+                    right: { num: r_idx + 1, text: lines2[r_idx] }
+                });
+                l_idx++;
+                r_idx++;
+            }
+        } else if (part.removed) {
+            // Check if next is added to handle 'replace'
+            const nextPart = diff[i + 1];
+            if (nextPart && nextPart.added) {
+                const nextPartLines = splitLines(nextPart.value);
+
+                const maxLen = Math.max(partLines.length, nextPartLines.length);
+                for (let k = 0; k < maxLen; k++) {
+                    let left = null;
+                    let right = null;
+                    if (k < partLines.length) {
+                        left = { num: l_idx + 1, text: lines1[l_idx] };
+                        l_idx++;
+                    }
+                    if (k < nextPartLines.length) {
+                        right = { num: r_idx + 1, text: lines2[r_idx] };
+                        r_idx++;
+                    }
+
+                    if (left && right) {
+                        // Char-level diff for 'replace' rows
+                        const charDiff = Diff.diffChars(left.text, right.text);
+                        left.parts = charDiff.filter(c => !c.added).map(c => ({
+                            text: c.value,
+                            type: c.removed ? 'delete' : 'equal'
+                        }));
+                        right.parts = charDiff.filter(c => !c.removed).map(c => ({
+                            text: c.value,
+                            type: c.added ? 'insert' : 'equal'
+                        }));
+                        diffRows.push({ type: 'replace', left, right });
+                    } else if (left) {
+                        diffRows.push({ type: 'delete', left, right: null });
+                    } else if (right) {
+                        diffRows.push({ type: 'insert', left: null, right });
+                    }
+                }
+                i++; // Skip next added part
+            } else {
+                for (let k = 0; k < partLines.length; k++) {
+                    diffRows.push({
+                        type: 'delete',
+                        left: { num: l_idx + 1, text: lines1[l_idx] },
+                        right: null
+                    });
+                    l_idx++;
+                }
+            }
+        } else if (part.added) {
+            for (let k = 0; k < partLines.length; k++) {
+                diffRows.push({
+                    type: 'insert',
+                    left: null,
+                    right: { num: r_idx + 1, text: lines2[r_idx] }
+                });
+                r_idx++;
+            }
+        }
+    }
+
+    const stats = {
+        additions: diffRows.filter(r => r.type === 'insert').length,
+        deletions: diffRows.filter(r => r.type === 'delete').length,
+        changes: diffRows.filter(r => r.type === 'replace').length,
+        identical: diffRows.filter(r => r.type === 'equal').length,
+        total_rows: diffRows.length
+    };
+
+    return { diffs: diffRows, stats };
+}
+
 module.exports = {
     convertColumnAdvanced,
     columnStats,
     convertDatesText,
+    computeDiff,
     parseFlexible,
     mapStrftimeToDayjs
 };

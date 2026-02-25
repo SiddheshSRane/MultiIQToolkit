@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const { logActivity } = require('../core/auth');
-const { convertColumnAdvanced, columnStats, convertDatesText } = require('../utils/textUtils');
+const { convertColumnAdvanced, columnStats, convertDatesText, computeDiff } = require('../utils/textUtils');
 const XLSX = require('xlsx');
 
 const { validateBody } = require('../middleware/validator');
@@ -140,6 +140,24 @@ router.post('/convert/datetime/export-xlsx', authMiddleware, validateBody(['text
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename="dates_conversion.xlsx"');
         res.send(buf);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post('/diff/compare', authMiddleware, validateBody(['text1', 'text2']), async (req, res, next) => {
+    try {
+        const { text1, text2, ignore_whitespace = false, ignore_case = false } = req.body;
+        const result = computeDiff(text1, text2, {
+            ignoreWhitespace: ignore_whitespace,
+            ignoreCase: ignore_case
+        });
+
+        if (req.user) {
+            await logActivity(req.user.id, 'Diff Comparison', 'text_compare');
+        }
+
+        res.json(result);
     } catch (error) {
         next(error);
     }

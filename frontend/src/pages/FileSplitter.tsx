@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { fetchWithAuth } from "../api/client";
+import { splitFile } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import { useNotifications } from "../contexts/NotificationContext";
 import {
@@ -10,7 +10,6 @@ import {
     Settings,
 } from "lucide-react";
 import { downloadBlob } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
 
 interface FileSplitterProps {
     onLogAction?: (action: string, filename: string, blob: Blob) => void;
@@ -32,21 +31,7 @@ export default function FileSplitter({ onLogAction }: FileSplitterProps) {
         const loadingId = notify('loading', 'Splitting File', `Dividing into ${rowsPerSplit} row chunks...`);
 
         try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("rows_per_split", String(rowsPerSplit));
-
-            const res = await fetchWithAuth("/api/file/split-file", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const blob = await res.blob();
+            const blob = await splitFile(file, rowsPerSplit);
             const outName = `${file.name.split('.')[0]}_split_parts.zip`;
 
             downloadBlob(blob, outName);

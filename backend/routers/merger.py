@@ -1,9 +1,9 @@
 import asyncio
 from typing import List
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from backend.core.config import executor
-from backend.core.auth import get_current_user, log_activity
+from backend.core.auth import get_current_user, log_activity, upload_processed_file
 from backend.utils.helpers import flatten_files
 from tools.file_merger import merge_files_advanced, preview_common_columns as get_preview
 
@@ -48,7 +48,8 @@ async def merge_advanced_api(
     include_source_col: bool = Form(True),
     join_mode: str = Form("stack"),
     join_key: str = Form(None),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     try:
         file_data = await flatten_files(files)
@@ -75,8 +76,13 @@ async def merge_advanced_api(
         )
         if output is None:
             raise HTTPException(status_code=400, detail=filename)
+        
         if user:
-            await log_activity(user.id, "Advanced Merge", filename)
+            async def bg_task():
+                file_url = await upload_processed_file(user.id, filename, output.getvalue())
+                await log_activity(user.id, "Advanced Merge", filename, file_url)
+            background_tasks.add_task(bg_task)
+
         return StreamingResponse(
             output,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if filename.endswith(".xlsx") else "text/csv",

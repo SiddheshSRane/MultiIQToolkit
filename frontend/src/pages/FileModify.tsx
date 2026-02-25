@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { fetchWithAuth } from "../api/client";
+import { previewColumns, modifyFiles } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
   File as FileIcon,
@@ -13,8 +13,7 @@ import {
   Trash2,
   Replace
 } from "lucide-react";
-import { downloadBlob, extractFilename } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
+import { downloadBlob } from "../utils/download";
 import { useNotifications } from "../contexts/NotificationContext";
 
 type SampleData = {
@@ -38,13 +37,6 @@ type ProcessResult = {
 interface FileModifyProps {
   onLogAction?: (action: string, filename: string, blob: Blob) => void;
 }
-
-const API_ENDPOINTS = {
-  PREVIEW: "/api/file/preview-columns",
-  REMOVE: "/api/file/remove-columns",
-  RENAME: "/api/file/rename-columns",
-  REPLACE: "/api/file/replace-blanks",
-} as const;
 
 const MODES = [
   { id: "remove", label: "Remove Columns", icon: Trash2, color: "var(--gradient-danger)" },
@@ -80,22 +72,9 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
   // Preview Fetching Logic
   const fetchPreview = useCallback(async (file: File, sheetName?: string | null): Promise<PreviewResponse | null> => {
     try {
-      const formData = new FormData();
       const previewFile = sliceFileForPreview(file);
-      formData.append("file", previewFile);
-      if (sheetName) formData.append("sheet_name", sheetName);
+      const data = await previewColumns(previewFile, sheetName);
 
-      const response = await fetchWithAuth(API_ENDPOINTS.PREVIEW, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorMessage = await parseApiError(response);
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
       setColumns(data.columns);
       setSample(data.sample || null);
       if (data.sheets) setAvailableSheets(data.sheets);
@@ -106,7 +85,7 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
       notify('error', 'Preview Failed', e instanceof Error ? e.message : "Failed to load file preview");
       return null;
     }
-  }, [notify]);
+  }, [notify, sliceFileForPreview]);
 
   useEffect(() => {
     if (files[0]) {
@@ -155,51 +134,37 @@ export default function FileModify({ onLogAction }: FileModifyProps) {
     const loadingId = notify('loading', 'Processing Files', `Applying ${mode} operation...`);
 
     try {
-      const endpoint = API_ENDPOINTS[mode.toUpperCase() as keyof typeof API_ENDPOINTS];
-      const formData = new FormData();
-      files.forEach((f) => formData.append("files", f));
+      const params: any = {
+        sheetName: sheet,
+        allSheets: applyAllSheets
+      };
 
       if (mode === "remove" || mode === "replace") {
-        formData.append("columns", selected.join(","));
+        params.columns = selected.join(",");
       }
 
       if (mode === "rename") {
-        formData.append("mapping", JSON.stringify(renameMap));
+        params.mapping = renameMap;
       }
 
       if (mode === "replace") {
-        formData.append("replacement", replacementValue);
+        params.replacement = replacementValue;
       }
 
-      if (sheet && !applyAllSheets) formData.append("sheet_name", sheet);
-      formData.append("all_sheets", String(applyAllSheets));
+      const { blob, filename } = await modifyFiles(mode, files, params);
 
-      const response = await fetchWithAuth(endpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorMessage = await parseApiError(response);
-        throw new Error(errorMessage);
-      }
-
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get("content-disposition");
-      const outName = extractFilename(contentDisposition, files.length > 1 ? "modified_batch.zip" : files[0].name);
-
-      downloadBlob(blob, outName);
-      setResults([{ blob, filename: outName }]);
+      downloadBlob(blob, filename);
+      setResults([{ blob, filename }]);
       notify('success', 'Operation Complete', `Successfully processed ${files.length} file(s).`, 5000, loadingId);
 
-      if (onLogAction) onLogAction(`File ${mode}`, outName, blob);
+      if (onLogAction) onLogAction(`File ${mode}`, filename, blob);
     } catch (e) {
       console.error("Processing error:", e);
       notify('error', 'Processing Failed', e instanceof Error ? e.message : "An error occurred.", 5000, loadingId);
     } finally {
       setLoading(false);
     }
-  }, [files, mode, selected, renameMap, replacementValue, sheet, applyAllSheets, onLogAction, notify]);
+  }, [files, mode, selected, renameMap, replacementValue, sheet, applyAllSheets, onLogAction, notify, VERCEL_PAYLOAD_LIMIT]);
 
   const downloadAll = useCallback(() => {
     results.forEach((r) => downloadBlob(r.blob, r.filename));

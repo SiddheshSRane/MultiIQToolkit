@@ -1,6 +1,6 @@
 {
     "name": "datarefinery-api-node",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Node.js implementation of DataRefinery API",
     "main": "src/index.js",
     "scripts": {
@@ -14,6 +14,7 @@
         "compression": "^1.7.4",
         "cors": "^2.8.5",
         "dayjs": "^1.11.10",
+        "diff": "^8.0.3",
         "dotenv": "^16.3.1",
         "express": "^4.18.2",
         "helmet": "^7.1.0",

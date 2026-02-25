@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { fetchWithAuth } from "../api/client";
+import { compareText } from "../api/client";
 import {
     Trash2,
     ArrowLeft,
@@ -33,7 +33,7 @@ interface DiffResponse {
 }
 
 export default function DiffChecker() {
-    const { notify, dismiss } = useNotifications();
+    const { notify } = useNotifications();
     const [text1, setText1] = useState("");
     const [text2, setText2] = useState("");
     const [diffResult, setDiffResult] = useState<DiffResponse | null>(null);
@@ -68,29 +68,16 @@ export default function DiffChecker() {
         const toastId = notify('loading', 'Comparing...', 'Calculating differences...');
 
         try {
-            const res = await fetchWithAuth("/api/diff/compare", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    text1,
-                    text2,
-                    ignore_whitespace: ignoreWhitespace,
-                    ignore_case: ignoreCase
-                })
-            });
-
-            if (!res.ok) throw new Error("Comparison failed");
-
-            const data = await res.json();
+            const data = await compareText(text1, text2, ignoreWhitespace, ignoreCase);
             setDiffResult(data);
             notify('success', 'Comparison Complete', `Found ${data.stats.changes} changes.`, 5000, toastId);
         } catch (e) {
             console.error(e);
-            notify('error', 'Error', "Failed to compute diff.", 5000, toastId);
+            notify('error', 'Error', e instanceof Error ? e.message : "Failed to compute diff.", 5000, toastId);
         } finally {
             setLoading(false);
         }
-    }, [text1, text2, ignoreWhitespace, ignoreCase, notify, dismiss]);
+    }, [text1, text2, ignoreWhitespace, ignoreCase, notify]);
 
     const clearAll = () => {
         setText1("");

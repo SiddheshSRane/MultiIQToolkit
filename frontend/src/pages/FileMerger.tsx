@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { fetchWithAuth } from "../api/client";
+import { previewCommonColumns, mergeFiles } from "../api/client";
 import FileUpload from "../components/FileUpload";
 import {
     Files,
@@ -13,8 +13,7 @@ import {
     GitMerge,
     Database
 } from "lucide-react";
-import { downloadBlob, extractFilename } from "../utils/download";
-import { parseApiError } from "../utils/apiError";
+import { downloadBlob } from "../utils/download";
 import { useNotifications } from "../contexts/NotificationContext";
 
 type SampleData = {
@@ -27,7 +26,7 @@ interface FileMergerProps {
 }
 
 export default function FileMerger({ onLogAction }: FileMergerProps) {
-    const { notify, dismiss } = useNotifications();
+    const { notify } = useNotifications();
     const [files, setFiles] = useState<File[]>([]);
     const [commonColumns, setCommonColumns] = useState<string[]>([]);
     const [selectedCols, setSelectedCols] = useState<string[]>([]);
@@ -65,26 +64,9 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
     const fetchPreview = useCallback(async (fs: File[], strat: string, caseIn: boolean, sheets: boolean) => {
         try {
             setLoading(true);
-            const fd = new FormData();
-            fs.forEach((f) => {
-                const previewFile = sliceFileForPreview(f);
-                fd.append("files", previewFile);
-            });
-            fd.append("strategy", strat);
-            fd.append("case_insensitive", String(caseIn));
-            fd.append("all_sheets", String(sheets));
+            const previewFiles = fs.map(f => sliceFileForPreview(f));
+            const data = await previewCommonColumns(previewFiles, strat, caseIn, sheets);
 
-            const res = await fetchWithAuth("/api/file/preview-common-columns", {
-                method: "POST",
-                body: fd,
-            });
-
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const data = await res.json();
             setCommonColumns(data.columns);
             setSelectedCols(data.columns);
             setSample(data.sample);
@@ -125,49 +107,34 @@ export default function FileMerger({ onLogAction }: FileMergerProps) {
         const toastId = notify('loading', 'Merging Files', 'Consolidating datasets...');
 
         try {
-            const fd = new FormData();
-            files.forEach((f) => fd.append("files", f));
-            fd.append("selected_columns", selectedCols.join(","));
-            fd.append("strategy", strategy);
-            fd.append("case_insensitive", String(caseInsensitive));
-            fd.append("remove_duplicates", String(removeDuplicates));
-            fd.append("all_sheets", String(allSheets));
-            fd.append("trim_whitespace", String(trimWhitespace));
-            fd.append("casing", casing);
-            fd.append("include_source_col", String(includeSource));
-            fd.append("join_mode", mergeMode);
+            const params = {
+                selectedColumns: selectedCols.join(","),
+                strategy,
+                caseInsensitive,
+                removeDuplicates,
+                allSheets,
+                trimWhitespace,
+                casing,
+                includeSource,
+                joinMode: mergeMode,
+                joinKey: mergeMode === "join" ? joinKey : undefined
+            };
 
-            if (mergeMode === "join" && joinKey) {
-                fd.append("join_key", joinKey);
-            }
+            const { blob, filename } = await mergeFiles(files, params);
 
-            const res = await fetchWithAuth("/api/file/merge-common-columns", {
-                method: "POST",
-                body: fd,
-            });
-
-            if (!res.ok) {
-                const errorMessage = await parseApiError(res);
-                throw new Error(errorMessage);
-            }
-
-            const blob = await res.blob();
-            const contentDisposition = res.headers.get("content-disposition");
-            const outName = extractFilename(contentDisposition, "merged_data.xlsx");
-
-            downloadBlob(blob, outName);
+            downloadBlob(blob, filename);
             setResultBlob(blob);
-            setResultFilename(outName);
+            setResultFilename(filename);
             notify('success', 'Merge Complete', `Consolidated ${files.length} files successfully.`, 5000, toastId);
 
-            if (onLogAction) onLogAction("Merge Files", outName, blob);
+            if (onLogAction) onLogAction("Merge Files", filename, blob);
         } catch (e) {
             console.error("Merge error:", e);
             notify('error', 'Merge Failed', e instanceof Error ? e.message : "An error occurred.", 5000, toastId);
         } finally {
             setLoading(false);
         }
-    }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinKey, onLogAction, notify, dismiss, VERCEL_PAYLOAD_LIMIT]);
+    }, [files, selectedCols, strategy, caseInsensitive, removeDuplicates, allSheets, trimWhitespace, casing, includeSource, mergeMode, joinKey, onLogAction, notify, VERCEL_PAYLOAD_LIMIT]);
 
     const toggleColumn = useCallback((col: string) => {
         setSelectedCols(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]);

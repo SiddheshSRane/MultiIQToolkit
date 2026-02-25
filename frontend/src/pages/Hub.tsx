@@ -10,7 +10,8 @@ import {
     QrCode,
     GitCompare,
     Search,
-    History
+    History,
+    Scissors
 } from "lucide-react";
 
 interface HubProps {
@@ -24,6 +25,7 @@ const TOOL_CONFIG: Record<string, { label: string; icon: any; color: string; des
     diff: { label: 'Code Comparer', icon: GitCompare, color: '#f97316', desc: 'Deep visual difference analysis.' },
     file: { label: 'File Modification', icon: Edit3, color: '#f59e0b', desc: 'Batch attribute and content tuning.' },
     merge: { label: 'File Merger', icon: Combine, color: '#8b5cf6', desc: 'Unified document fusion.' },
+    split: { label: 'File Splitter', icon: Scissors, color: '#ec4899', desc: 'Divide large files for easier processing.' },
     json: { label: 'JSON Converter', icon: FileCode, color: '#10b981', desc: 'Visual schema validation.' },
     datetime: { label: 'DateTime Helper', icon: Clock, color: '#06b6d4', desc: 'Temporal data timezone shifting.' },
     map: { label: 'Template Mapper', icon: Columns, color: '#ec4899', desc: 'Vertical data field mapping.' },
