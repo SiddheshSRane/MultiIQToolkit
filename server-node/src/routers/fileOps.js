@@ -3,14 +3,16 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const { processRemoveColumns, processRenameColumns, processReplaceBlanks } = require('../utils/tools');
-const { readData, unifiedBatchHandler } = require('../utils/helpers');
+const { readData, unifiedBatchHandler, getFilesFromRequest } = require('../utils/helpers');
 
 router.post('/preview-columns', upload.single('file'), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+        const flatFiles = await getFilesFromRequest(req);
+        if (flatFiles.length === 0) return res.status(400).json({ error: "No file uploaded" });
 
+        const file = flatFiles[0];
         const { sheet_name } = req.body;
-        const data = readData(req.file.buffer, req.file.originalname, sheet_name);
+        const data = readData(file.buffer, file.originalname, sheet_name);
 
         const headers = data.length > 0 ? Object.keys(data[0]) : [];
         const rows = data.slice(0, 10).map(row => Object.values(row));

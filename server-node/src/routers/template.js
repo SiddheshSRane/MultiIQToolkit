@@ -4,11 +4,14 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const { getExcelHeaders, processTemplateMap, previewTemplateMap } = require('../utils/tools');
 const { logActivity } = require('../core/auth');
+const { getFilesFromRequest } = require('../utils/helpers');
 
 router.post('/template-headers', upload.single('file'), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-        const headers = getExcelHeaders(req.file.buffer, req.file.originalname.toLowerCase().endsWith('.csv'));
+        const flatFiles = await getFilesFromRequest(req);
+        if (flatFiles.length === 0) return res.status(400).json({ error: "No file provided" });
+        const file = flatFiles[0];
+        const headers = getExcelHeaders(file.buffer, file.originalname.toLowerCase().endsWith('.csv'));
         res.json({ headers });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -17,14 +20,18 @@ router.post('/template-headers', upload.single('file'), async (req, res) => {
 
 router.post('/template-preview', upload.single('data_file'), async (req, res) => {
     try {
+        const flatFiles = await getFilesFromRequest(req);
+        if (flatFiles.length === 0) return res.status(400).json({ error: "No data file provided" });
+        const file = flatFiles[0];
+
         const { template_headers, mapping_json } = req.body;
         const tHeaders = JSON.parse(template_headers);
         const mapping = JSON.parse(mapping_json);
 
-        const result = previewTemplateMap(req.file.buffer, {
+        const result = previewTemplateMap(file.buffer, {
             template_headers: tHeaders,
             mapping,
-            isCsv: req.file.originalname.toLowerCase().endsWith('.csv')
+            isCsv: file.originalname.toLowerCase().endsWith('.csv')
         });
 
         res.json(result);
@@ -35,14 +42,18 @@ router.post('/template-preview', upload.single('data_file'), async (req, res) =>
 
 router.post('/template-map', upload.single('data_file'), async (req, res) => {
     try {
+        const flatFiles = await getFilesFromRequest(req);
+        if (flatFiles.length === 0) return res.status(400).json({ error: "No data file provided" });
+        const file = flatFiles[0];
+
         const { template_headers, mapping_json } = req.body;
         const tHeaders = JSON.parse(template_headers);
         const mapping = JSON.parse(mapping_json);
 
-        const { buffer, extension } = await processTemplateMap(req.file.buffer, {
+        const { buffer, extension } = await processTemplateMap(file.buffer, {
             template_headers: tHeaders,
             mapping,
-            isCsv: req.file.originalname.toLowerCase().endsWith('.csv')
+            isCsv: file.originalname.toLowerCase().endsWith('.csv')
         });
 
         if (req.user) {

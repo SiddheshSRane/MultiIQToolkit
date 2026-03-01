@@ -1,6 +1,8 @@
 const XLSX = require('xlsx');
 const AdmZip = require('adm-zip');
 const path = require('path');
+const axios = require('axios');
+const config = require('../core/config');
 const { logActivity } = require('../core/auth');
 
 /**
@@ -17,11 +19,49 @@ function readData(buffer, filename, sheetName = null) {
 }
 
 /**
- * Extracts files from request, including ZIPs
+ * Downloads a file from Supabase Storage
  */
-async function flattenFiles(reqFiles) {
+async function downloadFromSupabase(bucket, filePath) {
+    if (!config.supabaseUrl || !config.supabaseKey) {
+        throw new Error("Supabase is not configured.");
+    }
+
+    const url = `${config.supabaseUrl}/storage/v1/object/authenticated/${bucket}/${filePath}`;
+
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'apikey': config.supabaseKey,
+                'Authorization': `Bearer ${config.supabaseKey}`
+            },
+            responseType: 'arraybuffer'
+        });
+
+        return Buffer.from(response.data);
+    } catch (error) {
+        console.error(`Supabase download error (${filePath}):`, error.response?.data || error.message);
+        throw new Error(`Failed to download file from Supabase: ${error.message}`);
+    }
+}
+
+/**
+ * Extracts files from request, including ZIPs and Supabase paths
+ */
+async function flattenFiles(reqFiles, supabaseMeta = null) {
     const flattened = [];
     const MAX_FILES = 50;
+
+    // Add remote files if provided
+    if (supabaseMeta && supabaseMeta.paths && Array.isArray(supabaseMeta.paths)) {
+        const bucket = supabaseMeta.bucket || 'uploads';
+        for (const remotePath of supabaseMeta.paths) {
+            const buffer = await downloadFromSupabase(bucket, remotePath);
+            flattened.push({
+                buffer: buffer,
+                originalname: path.basename(remotePath)
+            });
+        }
+    }
 
     for (const file of reqFiles) {
         if (file.originalname.toLowerCase().endsWith('.zip')) {
@@ -51,11 +91,33 @@ async function flattenFiles(reqFiles) {
 }
 
 /**
+ * Unified helper to get files from either physical upload or Supabase Storage
+ */
+async function getFilesFromRequest(req) {
+    let supabaseMeta = null;
+    if (req.body.supabase_paths) {
+        try {
+            supabaseMeta = {
+                bucket: req.body.supabase_bucket || 'uploads',
+                paths: typeof req.body.supabase_paths === 'string'
+                    ? JSON.parse(req.body.supabase_paths)
+                    : req.body.supabase_paths
+            };
+        } catch (e) {
+            console.error("Failed to parse supabase_paths:", e);
+        }
+    }
+
+    const physicalFiles = req.file ? [req.file] : (req.files || []);
+    return await flattenFiles(physicalFiles, supabaseMeta);
+}
+
+/**
  * Handles batch processing of files
  */
 async function unifiedBatchHandler(req, res, processorFunc, args, actionName, extSuffix) {
     try {
-        const flatFiles = await flattenFiles(req.files || []);
+        const flatFiles = await getFilesFromRequest(req);
 
         if (req.user) {
             await logActivity(req.user.id, actionName, `${flatFiles.length} files`);
@@ -118,6 +180,7 @@ function getMediaType(ext) {
 module.exports = {
     readData,
     flattenFiles,
+    getFilesFromRequest,
     unifiedBatchHandler,
     getMediaType
 };

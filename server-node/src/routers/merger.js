@@ -3,12 +3,12 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const { processMergeFiles, previewCommonColumns } = require('../utils/tools');
-const { flattenFiles, getMediaType } = require('../utils/helpers');
+const { getFilesFromRequest, getMediaType } = require('../utils/helpers');
 const { logActivity } = require('../core/auth');
 
 router.post('/preview-common-columns', upload.array('files'), async (req, res) => {
     try {
-        const flatFiles = await flattenFiles(req.files || []);
+        const flatFiles = await getFilesFromRequest(req);
         const { strategy, case_insensitive } = req.body;
 
         const result = previewCommonColumns(flatFiles, { strategy, case_insensitive: case_insensitive === 'true' });
@@ -24,7 +24,7 @@ router.post('/preview-common-columns', upload.array('files'), async (req, res) =
 
 router.post('/merge-common-columns', upload.array('files'), async (req, res) => {
     try {
-        const flatFiles = await flattenFiles(req.files || []);
+        const flatFiles = await getFilesFromRequest(req);
         const options = {
             strategy: req.body.strategy,
             case_insensitive: req.body.case_insensitive === 'true',
