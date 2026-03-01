@@ -29,8 +29,10 @@ if %errorlevel% neq 0 (
 )
 
 :: 3. Start Backend
-echo  [92m[1/3] Starting Python Backend (FastAPI)... [0m
-start "MultiIQ Backend" /min cmd /c "python main.py"
+echo  [92m[1/3] Starting Node.js Backend (Express)... [0m
+cd server-node
+start "MultiIQ Backend" /min cmd /c "npm run dev"
+cd ..
 
 :: 4. Start Frontend
 echo  [92m[2/3] Starting React Frontend (Vite)... [0m
