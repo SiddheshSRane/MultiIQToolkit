@@ -12,6 +12,7 @@ const fileOpsRouter = require('./routers/fileOps');
 const mergerRouter = require('./routers/merger');
 const jsonConvRouter = require('./routers/jsonConv');
 const templateRouter = require('./routers/template');
+const diffRouter = require('./routers/diff');
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/file', fileOpsRouter);
 app.use('/api/file', mergerRouter);
 app.use('/api/file', jsonConvRouter);
 app.use('/api/file', templateRouter);
+app.use('/api/diff', diffRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

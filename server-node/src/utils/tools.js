@@ -433,6 +433,93 @@ function previewTemplateMap(buffer, { template_headers, mapping, isCsv }) {
     return { headers: template_headers, rows };
 }
 
+function computeDiff(text1, text2, options = {}) {
+    const { ignore_whitespace = false, ignore_case = false } = options;
+    const diff = require('diff');
+
+    const lines1 = text1.split(/\r?\n/);
+    const lines2 = text2.split(/\r?\n/);
+
+    const procText1 = ignore_case ? text1.toLowerCase() : text1;
+    const procText2 = ignore_case ? text2.toLowerCase() : text2;
+
+    // Use diffLines for base comparison
+    const changes = diff.diffLines(procText1, procText2, {
+        ignoreWhitespace: ignore_whitespace
+    });
+
+    const diffRows = [];
+    let l_num = 1;
+    let r_num = 1;
+
+    changes.forEach(change => {
+        const lines = change.value.replace(/\n$/, "").split("\n");
+        const count = change.count || lines.length;
+
+        if (!change.added && !change.removed) {
+            // Equal
+            for (let i = 0; i < lines.length; i++) {
+                const ln = l_num++;
+                const rn = r_num++;
+                diffRows.push({
+                    type: "equal",
+                    left: { num: ln, text: lines1[ln - 1] },
+                    right: { num: rn, text: lines2[rn - 1] }
+                });
+            }
+        } else if (change.removed) {
+            // Deleted from left
+            for (let i = 0; i < lines.length; i++) {
+                const ln = l_num++;
+                diffRows.push({
+                    type: "delete",
+                    left: { num: ln, text: lines1[ln - 1] },
+                    right: null
+                });
+            }
+        } else if (change.added) {
+            // Added to right
+            for (let i = 0; i < lines.length; i++) {
+                const rn = r_num++;
+                diffRows.push({
+                    type: "insert",
+                    left: null,
+                    right: { num: rn, text: lines2[rn - 1] }
+                });
+            }
+        }
+    });
+
+    // Sub-optimal but functional: merge consecutive delete + insert into "replace" for side-by-side
+    const finalRows = [];
+    for (let i = 0; i < diffRows.length; i++) {
+        const curr = diffRows[i];
+        const next = diffRows[i + 1];
+
+        if (curr.type === "delete" && next && next.type === "insert") {
+            finalRows.push({
+                type: "replace",
+                left: curr.left,
+                right: next.right
+            });
+            i++; // skip next
+        } else {
+            finalRows.push(curr);
+        }
+    }
+
+    return {
+        diffs: finalRows,
+        stats: {
+            additions: finalRows.filter(r => r.type === "insert").length,
+            deletions: finalRows.filter(r => r.type === "delete").length,
+            changes: finalRows.filter(r => r.type === "replace").length,
+            identical: finalRows.filter(r => r.type === "equal").length,
+            total_rows: finalRows.length
+        }
+    };
+}
+
 module.exports = {
     convertColumnAdvanced,
     columnStats,
@@ -444,5 +531,6 @@ module.exports = {
     previewCommonColumns,
     getExcelHeaders,
     processTemplateMap,
-    previewTemplateMap
+    previewTemplateMap,
+    computeDiff
 };
